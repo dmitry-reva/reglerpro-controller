@@ -24,7 +24,7 @@
 строковый (с буквенными маркерами) и JSON-массив. Реализован в `params_parser.py`.
 
 
-## [Установка вручную](./INSTALLATION.MD)
+## [Установка вручную](./INSTALLATION.md)
 
 1. Скопируйте папку `custom_components/kotel/` в `/config/custom_components/`
 2. Перезапустите Home Assistant
