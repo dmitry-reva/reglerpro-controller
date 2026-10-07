@@ -1,9 +1,7 @@
-# Kotel Integration для Home Assistant
+# Ручная установка ReglerPro Integration в Home Assistant
 
-Кастомная интеграция для получения данных и управления котлами/контроллерами
-и датчиками температуры из веб-приложения (порт функций из functions.js).
 
-## Установка
+## Процесс установки
 
 1. Скопируйте папку `kotel/` в `custom_components/` вашего Home Assistant:
    ```
@@ -41,18 +39,3 @@
   время/интервал продувки, вентилятор (min/max), время угасания,
   параметры шнека — всё с отправкой команд на сервер.
 
-## API
-
-Интеграция обращается к `php/taptop.php` методом POST с JSON, точно так же,
- как это делает functions.js:
-- `get_all_dev` — список всех устройств дома
-- `get_big_contr` — детальные данные контроллера
-- `get_big_dt` — детальные данные датчика
-- Команды управления: `temp_w_ust`, `temp_w_min`, `nasos_t`, `korect_`,
-  `produv_time`, `produv_interval`, `vent_min`, `vent_max`, `time_ugas`,
-  `start__`, `stop___`, и др.
-
-## Парсинг params
-
-Порт функции `getParams()` из functions.js поддерживает оба формата данных:
-строковый (с буквенными маркерами) и JSON-массив. Реализован в `params_parser.py`.
