@@ -1,0 +1,11 @@
+{
+  "domain": "kotel",
+  "name": "ReglerPro Controller",
+  "documentation": "https://app.reglerpro.ru",
+  "dependencies": [],
+  "codeowners": ["@user"],
+  "requirements": [],
+  "iot_class": "cloud_polling",
+  "version": "1.0.0",
+  "config_flow": true
+}
