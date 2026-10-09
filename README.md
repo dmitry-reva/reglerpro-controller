@@ -28,7 +28,7 @@
 1. Добавьте репозиторий https://github.com/dmitry-reva/reglerpro-controller  в HACS как Custom Repository (категория Integration)
 2. Установите интеграцию
 3. Перезапустите Home Assistant
-4. Настройки → Устройства и службы → Добавить → Kotel Controller
+4. Настройки → Устройства и службы → Добавить → ReglerPro Controller
 
 
 ## [Установка вручную](./INSTALLATION.md)
