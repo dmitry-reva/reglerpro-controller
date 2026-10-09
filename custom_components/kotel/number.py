@@ -2,9 +2,9 @@
 
 import logging
 
-from homeassistant.components.number import NumberEntity, NumberMode
-from homeassistant.const import UnitOfTemperature, PERCENTAGE, UnitOfTime
-from homeassistant.helpers.entity import EntityCategory
+from homeassistant.components.number import NumberEntity, NumberMode  # pyright: ignore[reportMissingImports]
+from homeassistant.const import UnitOfTemperature, PERCENTAGE, UnitOfTime  # pyright: ignore[reportMissingImports]
+from homeassistant.helpers.entity import EntityCategory # pyright: ignore[reportMissingImports]
 
 from .const import DOMAIN
 from .coordinator import KotelCoordinator

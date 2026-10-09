@@ -1,7 +1,7 @@
 """Клиент API для Kotel (на основе функций из functions.js)."""
 
 import logging
-import aiohttp
+import aiohttp  # pyright: ignore[reportMissingImports]
 import asyncio
 from .const import API_PATH
 
@@ -13,8 +13,7 @@ class KotelApiError(Exception):
 
 
 class KotelApiClient:
-    """Асинхронный клиент для общения с сервером taptop.php."""
-
+    # Асинхронный клиент для общения с сервером taptop.php
     def __init__(self, base_url: str, login: str, password: str, home_id: str = ""):
         self._base_url = base_url.rstrip("/")
         self._login = login

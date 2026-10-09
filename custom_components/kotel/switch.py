@@ -2,8 +2,8 @@
 
 import logging
 
-from homeassistant.components.switch import SwitchEntity
-from homeassistant.helpers.entity import EntityCategory
+from homeassistant.components.switch import SwitchEntity # pyright: ignore[reportMissingImports]
+from homeassistant.helpers.entity import EntityCategory # pyright: ignore[reportMissingImports]
 
 from .const import DOMAIN
 from .coordinator import KotelCoordinator

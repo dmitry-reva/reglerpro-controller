@@ -1,10 +1,9 @@
 {
     "name": "ReglerPro Controller",
-    "render_readme": true,
     "homeassistant": "2026.9.0",
 	"hacs": "2.0.5",
     "country": ["RU"],
     "category": "integration",
 	"content_in_root": false,
-    "filename": "kotel-1.0.0.zip"
+    "filename": "kotel-1.0.1.zip"
 }

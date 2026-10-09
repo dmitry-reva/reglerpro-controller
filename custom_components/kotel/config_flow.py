@@ -1,8 +1,8 @@
 """Config flow для интеграции Kotel."""
 
-import voluptuous as vol
-from homeassistant import config_entries
-from homeassistant.core import callback
+import voluptuous as vol  # pyright: ignore[reportMissingImports]
+from homeassistant import config_entries  # pyright: ignore[reportMissingImports]
+from homeassistant.core import callback  # pyright: ignore[reportMissingImports]
 
 from .const import DOMAIN, DEFAULT_URL
 from .api import KotelApiClient, KotelApiError

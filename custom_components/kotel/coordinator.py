@@ -3,7 +3,7 @@
 import logging
 from datetime import timedelta
 
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed  # type: ignore[import-not-found]
 
 from .api import KotelApiClient, KotelApiError
 from .const import DOMAIN, DEFAULT_SCAN_INTERVAL
