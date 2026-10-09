@@ -23,6 +23,13 @@
 Порт функции `getParams()` из functions.js поддерживает оба формата данных:
 строковый (с буквенными маркерами) и JSON-массив. Реализован в `params_parser.py`.
 
+## Установка через HACS
+
+1. Добавьте репозиторий https://github.com/dmitry-reva/reglerpro-controller  в HACS как Custom Repository (категория Integration)
+2. Установите интеграцию
+3. Перезапустите Home Assistant
+4. Настройки → Устройства и службы → Добавить → Kotel Controller
+
 
 ## [Установка вручную](./INSTALLATION.md)
 
@@ -42,12 +49,6 @@
 
 ## Что планируется:
 
-### Установка через HACS
-
-1. Добавьте этот репозиторий в HACS как Custom Repository (категория Integration)
-2. Установите интеграцию
-3. Перезапустите Home Assistant
-4. Настройки → Устройства и службы → Добавить → Kotel Controller
 
 ### Точность температур
 
