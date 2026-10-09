@@ -51,7 +51,7 @@ class KotelApiClient:
         """Получить список всех устройств (action=get_all_dev).
 
         Аналог post_action("", "get_all_dev", "", "", login, pass, "", home_id).
-        Возвращает массив устройств с type "contr" или "dt".
+        Возвращает массив устройств type "contr" или "dt".
         """
         payload = {
             "action": "get_all_dev",
@@ -82,10 +82,9 @@ class KotelApiClient:
         return data if isinstance(data, dict) else {}
 
     async def get_sensor(self, device_id: str) -> dict:
-        """Получить детальные данные датчика (action=get_big_dt).
-
-        Аналог post_action(home_id, "get_big_dt", device_id, "", login, pass).
-        """
+#        """Получить детальные данные датчика (action=get_big_dt).
+#        Аналог post_action(home_id, "get_big_dt", device_id, "", login, pass).
+#        """
         payload = {
             "action": "get_big_dt",
             "id_name": device_id,
