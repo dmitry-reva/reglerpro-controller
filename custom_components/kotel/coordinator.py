@@ -61,6 +61,8 @@ class KotelCoordinator(DataUpdateCoordinator):
                 # Контроллер: получаем детальные данные
                 try:
                     details = await self._api.get_controller(dev_id)
+                    if not details:
+                        details = dev
                 except KotelApiError as err:
                     _LOGGER.warning("Не удалось получить данные контроллера %s: %s", dev_id, err)
                     details = dev  # используем данные из списка

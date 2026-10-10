@@ -40,7 +40,7 @@ class KotelApiClient:
             ) as resp:
                 if resp.status != 200:
                     raise KotelApiError(f"HTTP {resp.status}")
-                data = await resp.json()
+                data = await resp.json(content_type=None)
                 _LOGGER.debug("Response: %s", data)
                 return data
         except (aiohttp.ClientError, asyncio.TimeoutError) as err:

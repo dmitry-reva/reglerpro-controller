@@ -202,7 +202,8 @@ class KotelContrStateSensor(KotelBaseSensor):
             attrs["auto"] = is_kotel_auto(params.get("vers", 0))
         return attrs
     
-    class KotelClimateModeSensor(KotelBaseSensor):
+    
+class KotelClimateModeSensor(KotelBaseSensor):
     """Режим климат-контроля: Нагрев / Охлаждение / Выключен (tstatNow)."""
 
     _ICONS = {
