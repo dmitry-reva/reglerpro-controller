@@ -1,17 +1,16 @@
 """Парсер параметров устройств — порт функции getParams() из functions.js."""
 
 
-def get_params_slice(data: str, ind1: str, ind2: str) -> int:
-    """Извлечь число между двумя символами-маркерами (как getParamsSlice в JS)."""
+def get_params_slice(data: str, ind1: str, ind2: str, default=0):
+    """Извлечь число между двумя маркерами (как getParamsSlice в JS)."""
     pos1 = data.find(ind1)
     pos2 = data.find(ind2)
     if pos1 != -1 and pos2 != -1 and pos2 > pos1:
-        result = data[pos1 + 1:pos2]
         try:
-            return int(result)
+            return int(data[pos1 + 1:pos2])
         except (ValueError, TypeError):
-            return 0
-    return 0
+            return default
+    return default
 
 
 def get_params(data: str) -> dict:
@@ -100,7 +99,7 @@ def get_params(data: str) -> dict:
         result["sost_rab"] = get_params_slice(data, "e", "f")
         result["temp_w_ust"] = get_params_slice(data, "a", "b")
         result["temp_w"] = get_params_slice(data, "d", "e")
-        result["tstatNow"] = get_params_slice(data, "k", "l")
+        result["tstatNow"] = get_params_slice(data, "k", "l", default=None) 
         result["vent_on"] = get_params_slice(data, "G", "H")
         result["temp_w_min"] = get_params_slice(data, "F", "G")
         result["dt_use"] = get_params_slice(data, "b", "c")

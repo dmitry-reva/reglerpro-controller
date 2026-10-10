@@ -39,25 +39,29 @@ def _create_contr_sensors(coordinator, dev_id, dev_data):
     sensors.append(KotelContrSensor(
         coordinator, dev_id, "temp_w", "Температура воды",
         SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS,
-        SensorStateClass.MEASUREMENT, "temperature",
+        SensorStateClass.MEASUREMENT, None,
     ))
+
+    # Режим климат-контроля (нагрев / охлаждение)
+    sensors.append(KotelClimateModeSensor(coordinator, dev_id))
+      
     # Уставка температуры воды (max)
     sensors.append(KotelContrSensor(
         coordinator, dev_id, "temp_w_ust", "Уставка температуры (max)",
         SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS,
-        SensorStateClass.MEASUREMENT, "temperature",
+        SensorStateClass.MEASUREMENT, None,
     ))
     # Минимальная температура воды
     sensors.append(KotelContrSensor(
         coordinator, dev_id, "temp_w_min", "Уставка температуры (min)",
         SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS,
-        SensorStateClass.MEASUREMENT, "temperature",
+        SensorStateClass.MEASUREMENT, None,
     ))
     # Температура шнека (для авто-котлов)
     sensors.append(KotelContrSensor(
         coordinator, dev_id, "shnek_temp", "Температура шнека",
         SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS,
-        SensorStateClass.MEASUREMENT, "temperature",
+        SensorStateClass.MEASUREMENT, None,
     ))
     # Состояние работы (текстовый)
     sensors.append(KotelContrStateSensor(coordinator, dev_id))
@@ -196,6 +200,53 @@ class KotelContrStateSensor(KotelBaseSensor):
         if "vers" in params:
             attrs["version"] = params["vers"]
             attrs["auto"] = is_kotel_auto(params.get("vers", 0))
+        return attrs
+    
+    class KotelClimateModeSensor(KotelBaseSensor):
+    """Режим климат-контроля: Нагрев / Охлаждение / Выключен (tstatNow)."""
+
+    _ICONS = {
+        "Нагрев": "mdi:fire",
+        "Охлаждение": "mdi:snowflake",
+        "Выключен": "mdi:thermostat-off",
+    }
+
+    def __init__(self, coordinator, dev_id):
+        super().__init__(coordinator, dev_id)
+        self._attr_name = "Климат-контроль"
+        self._attr_unique_id = f"kotel_{dev_id}_tstat_now"
+
+    @property
+    def native_value(self):
+        data = self._get_device_data()
+        if not data.get("climate", {}).get("active"):
+            return "Выключен"
+        now = data.get("params", {}).get("tstatNow")
+        if now is None:
+            return None          # данных нет -> unknown, а не ложный «нагрев»
+        return "Охлаждение" if now else "Нагрев"
+
+    @property
+    def icon(self):
+        return self._ICONS.get(self.native_value, "mdi:thermostat")
+
+    @property
+    def extra_state_attributes(self):
+        data = self._get_device_data()
+        climate = data.get("climate", {})
+        params = data.get("params", {})
+        attrs = {
+            "tstat_now_raw": params.get("tstatNow"),
+            "climate_enabled": climate.get("enabled"),
+            "sensor_selected": climate.get("sensor_selected"),
+        }
+        if climate.get("active"):
+            attrs.update({
+                "sensor_name": climate.get("sensor_name"),
+                "sensor_temp": climate.get("sensor_temp"),
+                "target_temp": climate.get("target_temp"),
+                "period": climate.get("period_text"),
+            })
         return attrs
 
 

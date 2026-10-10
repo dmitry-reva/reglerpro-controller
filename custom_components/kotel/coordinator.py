@@ -1,4 +1,18 @@
 """Координатор данных для интеграции Kotel."""
+from email.policy import default
+import json
+
+def _as_dict(value) -> dict:
+    """tstatArr / tempUstNowTstate могут прийти строкой JSON или словарём."""
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str) and value:
+        try:
+            parsed = json.loads(value)
+            return parsed if isinstance(parsed, dict) else {}
+        except (json.JSONDecodeError, ValueError):
+            return {}
+    return {}
 
 import logging
 from datetime import timedelta
@@ -52,14 +66,33 @@ class KotelCoordinator(DataUpdateCoordinator):
                     details = dev  # используем данные из списка
 
                 params = get_params(details.get("params", ""))
+                
+                def pick(key, default=None):
+                # детальные данные приоритетнее, но если поля нет — берём из списка
+                    return details.get(key, dev.get(key, default))
+                tstat = _as_dict(pick("tstatArr"))
+                tstat_now_ust = _as_dict(pick("tempUstNowTstate"))
+
+                
                 result[dev_id] = {
                     "type": "contr",
                     "name": dev_name,
                     "id": dev_id,
                     "params": params,
                     "mqtt_online": details.get("mqtt_online", "0"),
+                    "climate": {
+                        "enabled": bool(tstat.get("tstatOn")),
+                        "sensor_selected": bool(tstat.get("tstatDtId")),
+                        # как в JS: климат работает, только если включён И выбран датчик
+                        "active": bool(tstat.get("tstatOn") and tstat.get("tstatDtId")),
+                        "sensor_name": pick("sensor_name"),
+                        "sensor_temp": pick("sensor_temp"),
+                        "target_temp": tstat_now_ust.get("temp"),
+                        "period_text": tstat_now_ust.get("textPeriodOn"),
+                    },
                     "raw": details,
                 }
+                
             elif dev_type == "dt":
                 # Датчик температуры: данные уже есть в списке
                 result[dev_id] = {
