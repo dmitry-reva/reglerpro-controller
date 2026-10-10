@@ -6,6 +6,10 @@
 1. Скопируйте папку `kotel/` в `custom_components/` вашего Home Assistant:
    ```
    /config/custom_components/kotel/
+   ├── /brand/icon.png
+   ├── /brand/icon@2x.png
+   ├── /brand/logo.png
+   ├── /brand/logo@2x.png
    ├── __init__.py
    ├── api.py
    ├── config_flow.py
@@ -15,11 +19,10 @@
    ├── number.py
    ├── params_parser.py
    ├── sensor.py
-   ├── services.yaml
    └── switch.py
    ```
 2. Перезапустите Home Assistant.
-3. Настройки → Устройства и службы → Добавить интеграцию → "Kotel Controller".
+3. Настройки → Устройства и службы → Добавить интеграцию → "ReglerPro Controller".
 4. Введите URL сервера (по умолчанию `https://app.reglerpro.ru`), логин, пароль
    и ID дома (home_id).
 
