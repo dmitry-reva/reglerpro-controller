@@ -61,8 +61,6 @@ class KotelCoordinator(DataUpdateCoordinator):
                 # Контроллер: получаем детальные данные
                 try:
                     details = await self._api.get_controller(dev_id)
-                    if not details:
-                        details = dev
                 except KotelApiError as err:
                     _LOGGER.warning("Не удалось получить данные контроллера %s: %s", dev_id, err)
                     details = dev  # используем данные из списка
@@ -93,6 +91,7 @@ class KotelCoordinator(DataUpdateCoordinator):
                         "period_text": tstat_now_ust.get("textPeriodOn"),
                     },
                     "raw": details,
+                    "list_raw": dev,  # элемент из get_all_dev (для диагностики)
                 }
                 
             elif dev_type == "dt":

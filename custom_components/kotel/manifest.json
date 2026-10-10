@@ -6,6 +6,6 @@
   "codeowners": ["@dmitry-reva"],
   "requirements": [],
   "iot_class": "cloud_polling",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "config_flow": true
 }

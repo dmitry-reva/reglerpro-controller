@@ -17,6 +17,92 @@ from .params_parser import get_params, sost_rab_text, is_kotel_auto
 _LOGGER = logging.getLogger(__name__)
 
 
+# ---------------------------------------------------------------------------
+# Диагностические сенсоры «для изучения состояний»
+# ---------------------------------------------------------------------------
+# (ключ в params, название, device_class, единица, state_class, иконка)
+# Для флагов/кодов state_class не задаётся: в истории HA они отображаются
+# как временная шкала состояний, что удобно для изучения.
+# Смысл значений уточняйте по наблюдениям.
+DIAG_PARAM_SENSORS = [
+    ("vers", "Версия прошивки", None, None, None, "mdi:chip"),
+    ("vent_on", "Вентилятор включён", None, None, None, "mdi:fan"),
+    # Аварии и ошибки
+    ("err_temp_w", "Ошибка датчика t воды", None, None, None, "mdi:alert-circle-outline"),
+    ("err_temp_shnek", "Ошибка датчика t шнека", None, None, None, "mdi:alert-circle-outline"),
+    ("shnek_avaria", "Авария шнека", None, None, None, "mdi:alert"),
+    ("alarm_w", "Тревога по воде", None, None, None, "mdi:alarm-light"),
+    ("simistor_err", "Ошибка симистора", None, None, None, "mdi:flash-alert"),
+    # Шнек (авто-котлы)
+    ("shn_roz", "Шнек: интервал (нагрев)", SensorDeviceClass.DURATION,
+     UnitOfTime.SECONDS, SensorStateClass.MEASUREMENT, "mdi:timer-outline"),
+    ("shn_uga", "Шнек: интервал (поддержание)", SensorDeviceClass.DURATION,
+     UnitOfTime.SECONDS, SensorStateClass.MEASUREMENT, "mdi:timer-outline"),
+    ("shn_roz_vkl", "Шнек: работа (нагрев)", SensorDeviceClass.DURATION,
+     UnitOfTime.SECONDS, SensorStateClass.MEASUREMENT, "mdi:timer-play-outline"),
+    ("shn_uga_vkl", "Шнек: работа (поддержание)", SensorDeviceClass.DURATION,
+     UnitOfTime.SECONDS, SensorStateClass.MEASUREMENT, "mdi:timer-play-outline"),
+    ("shn_rev_auto", "Шнек: автореверс", None, None, None, "mdi:swap-horizontal"),
+    ("shn_rev_auto_i", "Шнек: интервал автореверса", None, None,
+     SensorStateClass.MEASUREMENT, "mdi:swap-horizontal"),
+    ("shn_rev_now", "Шнек: реверс сейчас", None, None, None, "mdi:swap-horizontal"),
+    # Климат-контроль
+    ("klimat_max", "Климат: максимум", None, None,
+     SensorStateClass.MEASUREMENT, "mdi:thermometer-high"),
+    ("klimat_min", "Климат: минимум", None, None,
+     SensorStateClass.MEASUREMENT, "mdi:thermometer-low"),
+    # Выносной датчик (строковый формат params)
+    ("dt_use", "Выносной датчик: используется", None, None, None, "mdi:thermometer-check"),
+    ("temp_dt", "Выносной датчик: температура", SensorDeviceClass.TEMPERATURE,
+     UnitOfTemperature.CELSIUS, SensorStateClass.MEASUREMENT, None),
+]
+
+# Значения из data["climate"] (разбираются в coordinator.py):
+# (ключ, название, тип значения, device_class, единица, state_class, иконка)
+CLIMATE_VALUE_SENSORS = [
+    ("enabled", "Климат: включён", "flag", None, None, None, "mdi:thermostat"),
+    ("sensor_selected", "Климат: датчик выбран", "flag", None, None, None,
+     "mdi:thermometer-check"),
+    ("sensor_name", "Климат: датчик", "text", None, None, None,
+     "mdi:thermometer-lines"),
+    ("sensor_temp", "Климат: температура датчика", "number",
+     SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS,
+     SensorStateClass.MEASUREMENT, None),
+    ("target_temp", "Климат: целевая температура", "number",
+     SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS,
+     SensorStateClass.MEASUREMENT, None),
+    ("period_text", "Климат: период", "text", None, None, None,
+     "mdi:calendar-clock"),
+]
+
+
+def _to_number(value):
+    """Привести значение к числу (int/float) или вернуть None."""
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, (int, float)):
+        return int(value) if isinstance(value, float) and value.is_integer() else value
+    try:
+        number = float(str(value).strip().replace(",", "."))
+    except ValueError:
+        return None
+    return int(number) if number.is_integer() else number
+
+
+def _params_format(raw) -> str:
+    """Определить формат строки params (для диагностики)."""
+    if isinstance(raw, list):
+        return "json"
+    if not isinstance(raw, str) or not raw.strip():
+        return "empty"
+    text = raw.strip()
+    if text.startswith("[") and text.endswith("]"):
+        return "json"
+    if "a" in text and "I" in text:
+        return "markers"
+    return "unknown"
+
+
 async def async_setup_entry(hass, entry, async_add_entities):
     """Настройка сенсоров при добавлении интеграции."""
     coordinator: KotelCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
@@ -115,6 +201,28 @@ def _create_contr_sensors(coordinator, dev_id, dev_data):
     # Статус онлайн
     sensors.append(KotelContrOnlineSensor(coordinator, dev_id))
 
+    # --- Диагностические сенсоры (для изучения состояний) ---
+    params = dev_data.get("params", {})
+    for key, name, device_class, unit, state_class, icon in DIAG_PARAM_SENSORS:
+        # Создаём только те параметры, которые реально приходят от прошивки.
+        # Если params пуст (например, контроллер был офлайн), создаём все.
+        if params and key not in params:
+            continue
+        sensors.append(KotelContrSensor(
+            coordinator, dev_id, key, name,
+            device_class, unit, state_class, icon,
+            EntityCategory.DIAGNOSTIC,
+        ))
+
+    for key, name, kind, device_class, unit, state_class, icon in CLIMATE_VALUE_SENSORS:
+        sensors.append(KotelClimateValueSensor(
+            coordinator, dev_id, key, name, kind,
+            device_class, unit, state_class, icon,
+        ))
+
+    # Сводный сенсор: все параметры и «сырая» строка params в атрибутах
+    sensors.append(KotelContrDebugSensor(coordinator, dev_id))
+
     return sensors
 
 
@@ -201,8 +309,8 @@ class KotelContrStateSensor(KotelBaseSensor):
             attrs["version"] = params["vers"]
             attrs["auto"] = is_kotel_auto(params.get("vers", 0))
         return attrs
-    
-    
+
+
 class KotelClimateModeSensor(KotelBaseSensor):
     """Режим климат-контроля: Нагрев / Охлаждение / Выключен (tstatNow)."""
 
@@ -249,6 +357,77 @@ class KotelClimateModeSensor(KotelBaseSensor):
                 "period": climate.get("period_text"),
             })
         return attrs
+
+
+class KotelClimateValueSensor(KotelBaseSensor):
+    """Значение климат-контроля из data["climate"] (флаг, число или текст)."""
+
+    def __init__(self, coordinator, dev_id, key, name, kind,
+                 device_class=None, unit=None, state_class=None, icon=None):
+        super().__init__(coordinator, dev_id)
+        self._key = key
+        self._kind = kind
+        self._attr_name = name
+        self._attr_unique_id = f"kotel_{dev_id}_climate_{key}"
+        self._attr_device_class = device_class
+        self._attr_native_unit_of_measurement = unit
+        self._attr_state_class = state_class
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
+        if icon:
+            self._attr_icon = icon
+
+    @property
+    def native_value(self):
+        value = self._get_device_data().get("climate", {}).get(self._key)
+        if value is None or value == "":
+            return None
+        if self._kind == "number":
+            return _to_number(value)
+        if self._kind == "flag":
+            return int(bool(value))
+        return str(value)
+
+
+class KotelContrDebugSensor(KotelBaseSensor):
+    """Сводный диагностический сенсор: все параметры контроллера в атрибутах.
+
+    Состояние — количество разобранных параметров. Если оно 0, значит
+    строка params не распознана; смотрите атрибут params_raw.
+    """
+
+    def __init__(self, coordinator, dev_id):
+        super().__init__(coordinator, dev_id)
+        self._attr_name = "Диагностика параметров"
+        self._attr_unique_id = f"kotel_{dev_id}_debug"
+        self._attr_icon = "mdi:bug-outline"
+        self._attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    @property
+    def native_value(self):
+        return len(self._get_device_data().get("params", {}))
+
+    @property
+    def extra_state_attributes(self):
+        data = self._get_device_data()
+        raw = data.get("raw") or {}
+        list_raw = data.get("list_raw") or {}
+
+        def pick(key):
+            value = raw.get(key)
+            return value if value is not None else list_raw.get(key)
+
+        params_raw = pick("params")
+        return {
+            "params_format": _params_format(params_raw),
+            "params_raw": params_raw,
+            "params": dict(data.get("params", {})),
+            "climate": dict(data.get("climate", {})),
+            "tstatArr": pick("tstatArr"),
+            "tempUstNowTstate": pick("tempUstNowTstate"),
+            "mqtt_online": data.get("mqtt_online"),
+            "raw_keys": sorted(raw.keys()),
+            "list_raw_keys": sorted(list_raw.keys()),
+        }
 
 
 class KotelContrOnlineSensor(KotelBaseSensor):
