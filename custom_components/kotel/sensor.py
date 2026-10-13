@@ -26,7 +26,7 @@ _LOGGER = logging.getLogger(__name__)
 # Смысл значений уточняйте по наблюдениям.
 DIAG_PARAM_SENSORS = [
     ("vers", "Версия прошивки", None, None, None, "mdi:chip"),
-    ("vent_on", "Вентилятор включён", None, None, None, "mdi:fan"),
+    ("vent_on", "Вентилятор", None, None, None, "mdi:fan"),
     # Аварии и ошибки
     ("err_temp_w", "Ошибка датчика t воды", None, None, None, "mdi:alert-circle-outline"),
     ("err_temp_shnek", "Ошибка датчика t шнека", None, None, None, "mdi:alert-circle-outline"),
