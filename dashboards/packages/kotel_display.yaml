@@ -1,17 +1,19 @@
 # =============================================================================
 #  Дисплей контроллера Kotel: кнопка F листает показания датчиков
 #
+#  Здесь только переключатель режимов и автовозврат. Само значение на дисплее
+#  выводится в дашборде (kotel_dashboard.yaml) прямо из исходных сущностей,
+#  поэтому шаблонный сенсор sensor.kotel_display больше не нужен.
+#
 #  ПОДКЛЮЧЕНИЕ
 #   1. В configuration.yaml (если ещё нет):
 #        homeassistant:
 #          packages: !include_dir_named packages
-#   2. Положите этот файл в /config/packages/kotel_display.yaml
+#   2. Положите файл в /config/packages/kotel_display.yaml
 #   3. Проверьте конфигурацию и перезапустите Home Assistant.
-#   4. ЗАМЕНИТЕ ID в словаре `src` ниже на свои (как в вашем дашборде).
-#      Режимы 2, 5–9, A, B берут значения из number-сущностей: сенсоров для
-#      этих параметров интеграция больше не создаёт.
+#      (изменение списка options у input_select требует перезапуска)
 #
-#  Коды режимов повторяют надписи на панели контроллера:
+#  КОДЫ РЕЖИМОВ (как на панели контроллера)
 #   1 Температура воды        2 Мощность вентилятора (max)
 #   3 Шнек: интервал нагрев   4 Шнек: интервал поддержание
 #   5 Время продувки          6 Интервал продувки
@@ -27,31 +29,6 @@ input_select:
     icon: mdi:numeric
     options: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "E", "S"]
     initial: "1"
-
-template:
-  - sensor:
-      - name: Kotel display
-        unique_id: kotel_display_value
-        icon: mdi:numeric
-        state: >
-          {% set src = {
-            '1': 'sensor.kotel_kontroller_temperatura_vody',
-            '2': 'number.kotel_kontroller_ventiliator_max',
-            '3': 'sensor.kotel_kontroller_shnek_interval_nagrev',
-            '4': 'sensor.kotel_kontroller_shnek_interval_podderzhanie',
-            '5': 'number.kotel_kontroller_vremia_produvki',
-            '6': 'number.kotel_kontroller_interval_produvki',
-            '7': 'number.kotel_kontroller_ustavka_temperatury_min',
-            '8': 'number.kotel_kontroller_vremia_ugasaniia',
-            '9': 'number.kotel_kontroller_temperatura_nasosa',
-            'A': 'number.kotel_kontroller_ventiliator_min',
-            'B': 'number.kotel_kontroller_korrektsiia_temperatury',
-            'E': 'sensor.kotel_kontroller_klimat_temperatura_datchika',
-            'S': 'sensor.kotel_kontroller_temperatura_shneka'
-          } %}
-          {% set mode = states('input_select.kotel_display_mode') %}
-          {% set v = states(src.get(mode, src['1'])) %}
-          {% if is_number(v) %}{{ '%g' | format(v | float | round(1)) }}{% else %}----{% endif %}
 
 automation:
   # Как на реальном контроллере: через 10 секунд дисплей возвращается к температуре воды
