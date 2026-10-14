@@ -7,7 +7,8 @@ from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorStateClass,
 )
-from homeassistant.const import UnitOfTemperature, PERCENTAGE, UnitOfTime
+from homeassistant.const import UnitOfTemperature, UnitOfTime
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity import EntityCategory
 
 from .const import DOMAIN, DEVICE_TYPE_CONTR, DEVICE_TYPE_DT
@@ -15,6 +16,38 @@ from .coordinator import KotelCoordinator
 from .params_parser import get_params, sost_rab_text, is_kotel_auto
 
 _LOGGER = logging.getLogger(__name__)
+
+# Сенсоры, которые интеграция больше не создаёт (нет данных от прошивки).
+# Ключи совпадают с unique_id вида kotel_<id устройства>_<ключ>.
+REMOVED_SENSOR_KEYS = (
+    "vent_max",
+    "vent_min",
+    "nasos_t",
+    "produv_time",
+    "produv_interval",
+    "time_ugas",
+    "korect_",
+    "servo_cooler",
+)
+
+
+def _cleanup_removed_sensors(hass, coordinator) -> None:
+    """Удалить из реестра сущностей старые сенсоры из REMOVED_SENSOR_KEYS.
+
+    Удаляются только явно перечисленные unique_id. Безопасно вызывать при
+    каждом запуске: если записей уже нет, ничего не происходит.
+    """
+    registry = er.async_get(hass)
+    for dev_id, dev_data in coordinator.data.items():
+        if dev_data.get("type") != DEVICE_TYPE_CONTR:
+            continue
+        for key in REMOVED_SENSOR_KEYS:
+            entity_id = registry.async_get_entity_id(
+                "sensor", DOMAIN, f"kotel_{dev_id}_{key}"
+            )
+            if entity_id:
+                _LOGGER.info("Удаляю устаревший сенсор %s", entity_id)
+                registry.async_remove(entity_id)
 
 
 # ---------------------------------------------------------------------------
@@ -26,7 +59,7 @@ _LOGGER = logging.getLogger(__name__)
 # Смысл значений уточняйте по наблюдениям.
 DIAG_PARAM_SENSORS = [
     ("vers", "Версия прошивки", None, None, None, "mdi:chip"),
-    ("vent_on", "Вентилятор", None, None, None, "mdi:fan"),
+    ("vent_on", "Вентилятор включён", None, None, None, "mdi:fan"),
     # Аварии и ошибки
     ("err_temp_w", "Ошибка датчика t воды", None, None, None, "mdi:alert-circle-outline"),
     ("err_temp_shnek", "Ошибка датчика t шнека", None, None, None, "mdi:alert-circle-outline"),
@@ -114,6 +147,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
         elif dev_data["type"] == DEVICE_TYPE_DT:
             entities.append(KotelDtSensor(coordinator, dev_id, dev_data))
 
+    _cleanup_removed_sensors(hass, coordinator)
     async_add_entities(entities)
 
 
@@ -151,53 +185,11 @@ def _create_contr_sensors(coordinator, dev_id, dev_data):
     ))
     # Состояние работы (текстовый)
     sensors.append(KotelContrStateSensor(coordinator, dev_id))
-    # Вентилятор (проценты)
-    sensors.append(KotelContrSensor(
-        coordinator, dev_id, "vent_max", "Вентилятор (max)",
-        None, PERCENTAGE, SensorStateClass.MEASUREMENT, None,
-        EntityCategory.CONFIG,
-    ))
-    sensors.append(KotelContrSensor(
-        coordinator, dev_id, "vent_min", "Вентилятор (min)",
-        None, PERCENTAGE, SensorStateClass.MEASUREMENT, None,
-        EntityCategory.CONFIG,
-    ))
-    # Насос
-    sensors.append(KotelContrSensor(
-        coordinator, dev_id, "nasos_t", "Температура насоса",
-        SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS,
-        SensorStateClass.MEASUREMENT, None, EntityCategory.CONFIG,
-    ))
-    # Время продувки
-    sensors.append(KotelContrSensor(
-        coordinator, dev_id, "produv_time", "Время продувки",
-        SensorDeviceClass.DURATION, UnitOfTime.SECONDS,
-        SensorStateClass.MEASUREMENT, None, EntityCategory.CONFIG,
-    ))
-    # Интервал продувки
-    sensors.append(KotelContrSensor(
-        coordinator, dev_id, "produv_interval", "Интервал продувки",
-        SensorDeviceClass.DURATION, UnitOfTime.MINUTES,
-        SensorStateClass.MEASUREMENT, None, EntityCategory.CONFIG,
-    ))
-    # Время угасания
-    sensors.append(KotelContrSensor(
-        coordinator, dev_id, "time_ugas", "Время угасания",
-        SensorDeviceClass.DURATION, UnitOfTime.MINUTES,
-        SensorStateClass.MEASUREMENT, None, EntityCategory.CONFIG,
-    ))
-    # Коррекция температуры
-    sensors.append(KotelContrSensor(
-        coordinator, dev_id, "korect_", "Коррекция температуры",
-        SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS,
-        SensorStateClass.MEASUREMENT, None, EntityCategory.CONFIG,
-    ))
-    # Заслонка вентилятора
-    sensors.append(KotelContrSensor(
-        coordinator, dev_id, "servo_cooler", "Заслонка вентилятора",
-        None, PERCENTAGE, SensorStateClass.MEASUREMENT, None,
-        EntityCategory.CONFIG,
-    ))
+    # Сенсоры vent_max, vent_min, nasos_t, produv_time, produv_interval,
+    # time_ugas, korect_, servo_cooler не создаются: прошивка не отдаёт по ним
+    # данных, а настройки доступны как number-сущности (number.py).
+    # Список — в REMOVED_SENSOR_KEYS.
+
     # Статус онлайн
     sensors.append(KotelContrOnlineSensor(coordinator, dev_id))
 
