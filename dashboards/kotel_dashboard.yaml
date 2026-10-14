@@ -12,16 +12,6 @@
 #      В редакторе работает поиск с заменой: Ctrl+H.
 #
 #  ID СУЩНОСТЕЙ (ожидаемые; у вас они могут отличаться)
-#   sensor.kotel_temperatura_vody               +Температура воды sensor.kotel_otopleniia_h13_temperatura_vody
-#   sensor.kotel_ustavka_temperatury_max/_min   Уставки температуры number.kotel_otopleniia_h13_ustavka_temperatury_max number.kotel_otopleniia_h13_ustavka_temperatury_min
-#   sensor.kotel_sostoianie                     Состояние (Работает/Остановлен/…) sensor.kotel_otopleniia_h13_sostoianie
-#   sensor.kotel_klimat_kontrol                 Климат-контроль (Нагрев/Охлаждение) sensor.kotel_otopleniia_kontroller_klimat_kontrolч  
-#   sensor.kotel_status_podkliucheniia          +online / offline sensor.kotel_otopleniia_h13_status_podkliucheniia
-#   sensor.kotel_ventiliator_vkliuchen          +vent_on (0/1) sensor.kotel_otopleniia_kontroller_ventiliator_vkliuchen
-#   sensor.kotel_klimat_vkliuchen               Климат: включён (0/1) sensor.kotel_otopleniia_kontroller_klimat_vkliuchen
-#   sensor.kotel_trevoga_po_vode …              аварии и ошибки (0 = норма) sensor.kotel_otopleniia_kontroller_trevoga_po_vode
-#   switch.kotel_start_stop                     +Старт/Стоп switch.kotel_otopleniia_h13_start_stop
-#   number.kotel_*                              настройки (ползунки)
 # =============================================================================
 title: Котёл
 views:
@@ -34,11 +24,9 @@ views:
       - type: picture-elements
         image: /local/kotel/controller.png
         elements:
-          # Дисплей: температура воды
+          # Дисплей: значение выбранного параметра (источник — sensor.kotel_display)
           - type: state-label
-            entity: sensor.kotel_kontroller_temperatura_vody
-            content: >
-              {{ (states('sensor.kotel_kontroller_temperatura_vody') | float(default=0)) | round(0) }} °C
+            entity: sensor.kotel_display
             style:
               left: 55.9%
               top: 33.2%
@@ -50,6 +38,20 @@ views:
               text-shadow: 0 0 8px rgba(255, 59, 48, 0.8)
               pointer-events: none
 
+          # Код выбранного параметра (мелко в левой части дисплея)
+          - type: state-label
+            entity: input_select.kotel_display_mode
+            style:
+              left: 44%
+              top: 26%
+              transform: translate(-50%, -50%)
+              font-size: 14px
+              font-weight: bold
+              font-family: '"Courier New", monospace'
+              color: "#ff3b30"
+              opacity: 0.8
+              pointer-events: none
+
           # Кнопка START/STOP (нажатие переключает котёл)
           - type: state-icon
             entity: switch.kotel_kontroller_start_stop
@@ -59,6 +61,24 @@ views:
             style:
               left: 82.9%
               top: 26.7%
+              transform: translate(-50%, -50%)
+              "--mdc-icon-size": 34px
+              opacity: 0.35
+
+          # Кнопка F: каждое нажатие выбирает следующий параметр для дисплея
+          - type: state-icon
+            entity: input_select.kotel_display_mode
+            icon: mdi:alpha-f-box-outline
+            tap_action:
+              action: perform-action
+              perform_action: input_select.select_next
+              target:
+                entity_id: input_select.kotel_display_mode
+              data:
+                cycle: true
+            style:
+              left: 83%
+              top: 74%
               transform: translate(-50%, -50%)
               "--mdc-icon-size": 34px
               opacity: 0.35
@@ -135,7 +155,7 @@ views:
                 entity: sensor.kotel_kontroller_avariia_shneka
                 state_not: "0"
               - condition: state
-                entity: sensor.kotel_oshibka_datchika_t_vody
+                entity: sensor.kotel_kontroller_oshibka_datchika_t_vody
                 state_not: "0"
               - condition: state
                 entity: sensor.kotel_kontroller_oshibka_datchika_t_shneka
@@ -206,17 +226,17 @@ views:
           - entity: sensor.kotel_kontroller_ustavka_temperatury_min
             name: Уставка min
 
-       # ---- 5+. Температура шнека -----------------------------------------------------
+      # ---- 5+. Температура шнека -----------------------------------------------------
       - type: tile
+        entity: sensor.kotel_kontroller_temperatura_shneka
+        name: Температура шнека
+        vertical: false
         grid_options:
-        rows: 2
-        columns: full
-          - entity: sensor.kotel_kontroller_temperatura_shneka
-            name: Температура шнека
-            vertical: false
-            features:
-              - type: trend-graph
-            features_position: bottom
+          rows: 2
+          columns: full
+        features:
+          - type: trend-graph
+        features_position: bottom
 
       # ---- 6. Управление -----------------------------------------------------
       - type: entities
@@ -227,7 +247,7 @@ views:
             name: Старт / Стоп
           - entity: number.kotel_kontroller_ustavka_temperatury_max
           - entity: number.kotel_kontroller_ustavka_temperatury_min
-          - entity: number.kotel_kontroller_korektirovka_temperatury
+          - entity: number.kotel_kontroller_korrektsiia_temperatury
 
       # ---- 7. Диагностика ----------------------------------------------------
       - type: entities
