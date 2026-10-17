@@ -6,8 +6,18 @@ from homeassistant.components.number import NumberEntity, NumberMode  # pyright:
 from homeassistant.const import UnitOfTemperature, PERCENTAGE, UnitOfTime  # pyright: ignore[reportMissingImports]
 from homeassistant.helpers.entity import EntityCategory # pyright: ignore[reportMissingImports]
 
-from .const import DOMAIN
-from .coordinator import KotelCoordinator
+from homeassistant.exceptions import HomeAssistantError  # pyright: ignore[reportMissingImports]
+
+from .api import KotelApiError
+from .const import (
+    CLIMATE_TEMP_MAX,
+    CLIMATE_TEMP_MIN,
+    CLIMATE_TEMP_STEP,
+    DOMAIN,
+    SCHEDULE_GROUPS,
+    SCHEDULE_PERIODS,
+)
+from .coordinator import KotelCoordinator, to_number
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -38,6 +48,18 @@ async def async_setup_entry(hass, entry, async_add_entities):
                     coordinator, dev_id, entry.entry_id,
                     key, name, min_val, max_val, step, unit, category,
                 ))
+
+    # Расписание климат-контроля: 6 групп × 4 периода × (время + температура)
+    for dev_id, dev_data in coordinator.data.items():
+        if dev_data["type"] != "contr":
+            continue
+        for template, label in SCHEDULE_GROUPS:
+            for period in SCHEDULE_PERIODS:
+                for kind in ("time", "temp"):
+                    entities.append(KotelScheduleNumber(
+                        coordinator, dev_id, entry.entry_id,
+                        template, label, period, kind,
+                    ))
 
     async_add_entities(entities)
 
@@ -90,4 +112,70 @@ class KotelNumberEntity(NumberEntity):
     async def async_set_native_value(self, value):
         api = self._coordinator.hass.data[DOMAIN][self._entry_id]["api"]
         await api.send_command(self._key, self._dev_id, value)
+        await self._coordinator.async_request_refresh()
+
+
+class KotelScheduleNumber(KotelNumberEntity):
+    """Значение расписания климат-контроля: час начала периода или его температура.
+
+    Для времени границы зависят от соседних периодов (как в climate.js):
+    период N должен начинаться позже N-1 и раньше N+1; первый — с 0 ч, последний — до 23 ч.
+    """
+
+    def __init__(self, coordinator, dev_id, entry_id, template, label, period, kind):
+        self._template = template
+        self._period = period
+        self._kind = kind
+        key = template.format(n=period, kind=kind)
+        if kind == "time":
+            name = f"Расписание {label}: П{period} начало"
+            min_val, max_val, step, unit = 0, 23, 1, UnitOfTime.HOURS
+        else:
+            name = f"Расписание {label}: П{period} t°"
+            min_val, max_val, step, unit = (
+                CLIMATE_TEMP_MIN, CLIMATE_TEMP_MAX, CLIMATE_TEMP_STEP,
+                UnitOfTemperature.CELSIUS,
+            )
+        super().__init__(
+            coordinator, dev_id, entry_id, key, name,
+            min_val, max_val, step, unit, EntityCategory.CONFIG,
+        )
+        self._attr_unique_id = f"kotel_{dev_id}_{key}_sched"
+        self._attr_mode = NumberMode.BOX
+        self._attr_icon = "mdi:clock-outline" if kind == "time" else "mdi:thermometer"
+
+    def _schedule(self) -> dict:
+        data = self._coordinator.data.get(self._dev_id, {})
+        return data.get("climate", {}).get("schedule", {})
+
+    def _neighbor_hour(self, period: int):
+        key = self._template.format(n=period, kind="time")
+        return to_number(self._schedule().get(key))
+
+    @property
+    def native_value(self):
+        return to_number(self._schedule().get(self._key))
+
+    @property
+    def native_min_value(self):
+        if self._kind != "time" or self._period == SCHEDULE_PERIODS[0]:
+            return self._attr_native_min_value
+        previous = self._neighbor_hour(self._period - 1)
+        return previous + 1 if previous is not None else self._attr_native_min_value
+
+    @property
+    def native_max_value(self):
+        if self._kind != "time" or self._period == SCHEDULE_PERIODS[-1]:
+            return self._attr_native_max_value
+        following = self._neighbor_hour(self._period + 1)
+        return following - 1 if following is not None else self._attr_native_max_value
+
+    async def async_set_native_value(self, value):
+        value = float(value)
+        value = int(value) if self._kind == "time" or value.is_integer() else value
+        api = self._coordinator.hass.data[DOMAIN][self._entry_id]["api"]
+        try:
+            await api.set_climate_value(self._dev_id, self._key, value)
+        except KotelApiError as err:
+            raise HomeAssistantError(f"Не удалось записать {self._key}: {err}") from err
         await self._coordinator.async_request_refresh()

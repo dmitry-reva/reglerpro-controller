@@ -3,7 +3,14 @@
 import logging
 import aiohttp  # pyright: ignore[reportMissingImports]
 import asyncio
-from .const import API_PATH
+from .const import (
+    API_PATH,
+    ACTION_CLIMATE_GET_SENSORS,
+    ACTION_CLIMATE_MODE,
+    ACTION_CLIMATE_ON_OFF,
+    ACTION_CLIMATE_RANGE,
+    ACTION_CLIMATE_SELECT_SENSOR,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -40,7 +47,7 @@ class KotelApiClient:
             ) as resp:
                 if resp.status != 200:
                     raise KotelApiError(f"HTTP {resp.status}")
-                data = await resp.json(content_type=None)
+                data = await resp.json()
                 _LOGGER.debug("Response: %s", data)
                 return data
         except (aiohttp.ClientError, asyncio.TimeoutError) as err:
@@ -116,6 +123,54 @@ class KotelApiClient:
             payload["range"] = range_value + 20
         data = await self._post(payload)
         return data if isinstance(data, dict) else {}
+
+    # ------------------------------------------------------------------
+    # Климат-контроль (формат запросов как в climate.js / post_action)
+    # ------------------------------------------------------------------
+    async def _climate_post(self, action: str, device_id: str,
+                            value: str | int | float = "",
+                            range_value: int | float = 0) -> dict | list:
+        """Запрос климат-контроля.
+
+        В отличие от send_command, значение передаётся в поле `climat_war1`,
+        а числовое значение слайдера — в `range` (как в post_action из JS).
+        """
+        payload = {
+            "climat_war1": value,
+            "action": action,
+            "range": range_value,
+            "id_name": device_id,
+            "login": self._login,
+            "password": self._password,
+        }
+        if self._home_id:
+            payload["userId"] = self._home_id
+        return await self._post(payload)
+
+    async def climate_on_off(self, device_id: str) -> None:
+        """Переключить климат-контроль (ВНИМАНИЕ: это переключатель, а не set)."""
+        await self._climate_post(ACTION_CLIMATE_ON_OFF, device_id)
+
+    async def set_climate_mode(self, device_id: str, mode: int) -> None:
+        """Выбрать режим: 0 — постоянная t°, 3 — 7/7, 4 — 5/2, 5 — 4/1/2."""
+        await self._climate_post(ACTION_CLIMATE_MODE, device_id, int(mode))
+
+    async def set_climate_value(self, device_id: str, key: str,
+                                value: int | float) -> None:
+        """Записать значение: key = "temp_dt" или ключ расписания ("m3_P1_temp")."""
+        await self._climate_post(ACTION_CLIMATE_RANGE, device_id, key, value)
+
+    async def select_climate_sensor(self, device_id: str, sensor_id: str) -> None:
+        """Выбрать датчик температуры помещения для климат-контроля."""
+        await self._climate_post(ACTION_CLIMATE_SELECT_SENSOR, device_id, sensor_id)
+
+    async def get_climate_sensors(self, device_id: str) -> list[dict]:
+        """Список датчиков для выбора: [{"id_name": ..., "name": ...}, ...]."""
+        data = await self._climate_post(ACTION_CLIMATE_GET_SENSORS, device_id)
+        sensors = data.get("sensors") if isinstance(data, dict) else None
+        if not isinstance(sensors, list):
+            return []
+        return [s for s in sensors if isinstance(s, dict) and s.get("id_name")]
 
     async def close(self):
         if self._session and not self._session.closed:
