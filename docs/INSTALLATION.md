@@ -12,12 +12,14 @@
    ├── /brand/logo@2x.png
    ├── __init__.py
    ├── api.py
+   ├── climate.py   
    ├── config_flow.py
    ├── const.py
    ├── coordinator.py
    ├── manifest.json
    ├── number.py
    ├── params_parser.py
+   ├── select.py 
    ├── sensor.py
    └── switch.py
    ```
