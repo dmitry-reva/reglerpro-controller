@@ -1,15 +1,15 @@
 # ReglerPro Controller — интеграция для Home Assistant
 
-[![HACS: Custom](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
-![Версия](https://img.shields.io/badge/версия-1.2.0-blue.svg)
+[<img src="https://img.shields.io/badge/HACS-Custom-orange.svg alt="HACS: Custom">](https://hacs.xyz)
+<img src=https://img.shields.io/badge/версия-1.2.0-blue.svg alt="Версия">
 
 Кастомная интеграция Home Assistant для управления параметрами и регистрации показаний датчиков контроллера твердотопливного котла [ReglerPro](https://regler.pro/), реализованная через сервер официального веб-приложения производителя [app.reglerpro.ru](https://app.reglerpro.ru).
+
+> **Неофициальный проект.** Интеграция не связана с производителем и использует тот же API, что и веб-приложение. Управление котлом влияет на безопасность отопления: изменяйте уставки осознанно и не оставляйте автоматизации без контроля.
 
 <img src="/dashboards/example/dashboard-kotel-20261013.png" alt="Рисунок. Пример дашборда контроллера ReglerPro Controller">
 
 *Рисунок. Пример дашборда контроллера ReglerPro Controller*
-
-> **Неофициальный проект.** Интеграция не связана с производителем и использует тот же API, что и веб-приложение. Управление котлом влияет на безопасность отопления: изменяйте уставки осознанно и не оставляйте автоматизации без контроля.
 
 ## Содержание
 
