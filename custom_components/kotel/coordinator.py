@@ -172,4 +172,16 @@ class KotelCoordinator(DataUpdateCoordinator):
                     "raw": dev,
                 }
 
+        # Температура датчика климат-контроля: контроллер отдаёт её целой
+        # (sensor_temp = "24"), а у самого датчика из списка устройств есть
+        # десятые. Если датчик найден, берём его значение.
+        for dev_data in result.values():
+            if dev_data["type"] != "contr":
+                continue
+            climate = dev_data["climate"]
+            sensor = result.get(climate.get("sensor_id"))
+            precise = to_number(sensor.get("temp")) if sensor else None
+            if precise is not None:
+                climate["sensor_temp"] = precise
+
         return result

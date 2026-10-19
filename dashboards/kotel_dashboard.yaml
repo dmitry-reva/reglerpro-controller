@@ -12,8 +12,17 @@
 #      В редакторе работает поиск с заменой: Ctrl+H.
 #
 #  ID СУЩНОСТЕЙ (ожидаемые; у вас они могут отличаться)
-# # =============================================================================
-
+#   sensor.kotel_temperatura_vody               +Температура воды sensor.kotel_otopleniia_h13_temperatura_vody
+#   sensor.kotel_ustavka_temperatury_max/_min   Уставки температуры number.kotel_otopleniia_h13_ustavka_temperatury_max number.kotel_otopleniia_h13_ustavka_temperatury_min
+#   sensor.kotel_sostoianie                     Состояние (Работает/Остановлен/…) sensor.kotel_otopleniia_h13_sostoianie
+#   sensor.kotel_klimat_kontrol                 Климат-контроль (Нагрев/Охлаждение) sensor.kotel_otopleniia_kontroller_klimat_kontrolч  
+#   sensor.kotel_status_podkliucheniia          +online / offline sensor.kotel_otopleniia_h13_status_podkliucheniia
+#   sensor.kotel_ventiliator_vkliuchen          +vent_on (0/1) sensor.kotel_otopleniia_kontroller_ventiliator_vkliuchen
+#   sensor.kotel_klimat_vkliuchen               Климат: включён (0/1) sensor.kotel_otopleniia_kontroller_klimat_vkliuchen
+#   sensor.kotel_trevoga_po_vode …              аварии и ошибки («нет» = норма) sensor.kotel_otopleniia_kontroller_trevoga_po_vode
+#   switch.kotel_start_stop                     +Старт/Стоп switch.kotel_otopleniia_h13_start_stop
+#   number.kotel_*                              настройки (ползунки)
+# =============================================================================
 title: Котёл
 views:
   - title: Контроллер
@@ -42,7 +51,7 @@ views:
                   top: 33.2%
                   transform: translate(-50%, -50%)
                   font-size: 34px
-                  font-weight: normal
+                  font-weight: bold
                   font-family: Arial, Helvetica, sans-serif
                   color: "#ff3b30"
                   text-shadow: 0 0 8px rgba(255, 59, 48, 0.8)
@@ -172,11 +181,11 @@ views:
           - type: state-label
             entity: input_select.kotel_display_mode
             style:
-              left: 43%
+              left: 44%
               top: 26%
               transform: translate(-50%, -50%)
               font-size: 14px
-              font-weight: normal
+              font-weight: bold
               font-family: Arial, Helvetica, sans-serif
               color: "#ff3b30"
               opacity: 0.8
@@ -218,7 +227,7 @@ views:
             conditions:
               - condition: state
                 entity: sensor.kotel_kontroller_ventiliator_vkliuchen
-                state: "1"
+                state: "да"
             elements:
               - type: icon
                 icon: mdi:circle
@@ -261,7 +270,7 @@ views:
             conditions:
               - condition: state
                 entity: sensor.kotel_kontroller_klimat_vkliuchen
-                state: "1"
+                state: "да"
             elements:
               - type: icon
                 icon: mdi:circle
@@ -280,19 +289,19 @@ views:
             conditions:
               - condition: state
                 entity: sensor.kotel_kontroller_trevoga_po_vode
-                state_not: "0"
+                state: "да"
               - condition: state
                 entity: sensor.kotel_kontroller_avariia_shneka
-                state_not: "0"
+                state: "да"
               - condition: state
                 entity: sensor.kotel_kontroller_oshibka_datchika_t_vody
-                state_not: "0"
+                state: "да"
               - condition: state
                 entity: sensor.kotel_kontroller_oshibka_datchika_t_shneka
-                state_not: "0"
+                state: "да"
               - condition: state
                 entity: sensor.kotel_kontroller_oshibka_simistora
-                state_not: "0"
+                state: "да"
         card:
           type: markdown
           content: >
@@ -303,6 +312,23 @@ views:
             Датчик воды: **{{ states('sensor.kotel_kontroller_oshibka_datchika_t_vody') }}**  ·
             Датчик шнека: **{{ states('sensor.kotel_kontroller_oshibka_datchika_t_shneka') }}**  ·
             Симистор: **{{ states('sensor.kotel_kontroller_oshibka_simistora') }}**
+
+      # ---- 2+. Термостат (климат-контроль) ----------------------------------
+      - type: thermostat
+        entity: climate.kotel_kontroller_termostat   # замените на ID вашего термостата
+        name: Термостат
+        features:
+          - type: climate-hvac-modes
+            hvac_modes:
+              - "off"
+              - heat
+              - auto
+          - type: climate-preset-modes
+            style: dropdown
+            preset_modes:
+              - Расписание 7/7
+              - Расписание 5/2
+              - Расписание 4/1/2
 
       # ---- 3. Температура воды: стрелочный индикатор ------------------------
       - type: gauge

@@ -109,6 +109,29 @@ CLIMATE_VALUE_SENSORS = [
 ]
 
 
+# Бинарные параметры отображаются как «нет» / «да» (исходное число — в атрибуте value).
+YES_NO_OPTIONS = ["нет", "да"]
+FLAG_PARAM_KEYS = frozenset({
+    "vent_on",          # вентилятор включён
+    "err_temp_w",       # ошибка датчика t воды
+    "err_temp_shnek",   # ошибка датчика t шнека
+    "shnek_avaria",     # авария шнека
+    "alarm_w",          # тревога по воде
+    "simistor_err",     # ошибка симистора
+    "shn_rev_auto",     # автореверс шнека
+    "shn_rev_now",      # реверс сейчас
+    "dt_use",           # выносной датчик используется
+})
+
+
+def _yes_no(value):
+    """0 -> «нет», любое ненулевое число -> «да», нет данных -> None."""
+    number = _to_number(value)
+    if number is None:
+        return None
+    return "да" if number else "нет"
+
+
 def _to_number(value):
     """Привести значение к числу (int/float) или вернуть None."""
     if isinstance(value, bool):
@@ -200,6 +223,11 @@ def _create_contr_sensors(coordinator, dev_id, dev_data):
         # Если params пуст (например, контроллер был офлайн), создаём все.
         if params and key not in params:
             continue
+        if key in FLAG_PARAM_KEYS:
+            sensors.append(KotelContrFlagSensor(
+                coordinator, dev_id, key, name, icon, EntityCategory.DIAGNOSTIC,
+            ))
+            continue
         sensors.append(KotelContrSensor(
             coordinator, dev_id, key, name,
             device_class, unit, state_class, icon,
@@ -272,6 +300,26 @@ class KotelContrSensor(KotelBaseSensor):
         data = self._get_device_data()
         params = data.get("params", {})
         return params.get(self._param_key)
+
+
+class KotelContrFlagSensor(KotelContrSensor):
+    """Бинарный параметр контроллера: «нет» / «да» (0 -> нет, иное -> да)."""
+
+    def __init__(self, coordinator, dev_id, param_key, name,
+                 icon=None, entity_category=None):
+        super().__init__(
+            coordinator, dev_id, param_key, name,
+            SensorDeviceClass.ENUM, None, None, icon, entity_category,
+        )
+        self._attr_options = list(YES_NO_OPTIONS)
+
+    @property
+    def native_value(self):
+        return _yes_no(super().native_value)
+
+    @property
+    def extra_state_attributes(self):
+        return {"value": super().native_value}
 
 
 class KotelContrStateSensor(KotelBaseSensor):
@@ -365,6 +413,9 @@ class KotelClimateValueSensor(KotelBaseSensor):
         self._attr_native_unit_of_measurement = unit
         self._attr_state_class = state_class
         self._attr_entity_category = EntityCategory.DIAGNOSTIC
+        if kind == "flag":
+            self._attr_device_class = SensorDeviceClass.ENUM
+            self._attr_options = list(YES_NO_OPTIONS)
         if icon:
             self._attr_icon = icon
 
@@ -376,7 +427,7 @@ class KotelClimateValueSensor(KotelBaseSensor):
         if self._kind == "number":
             return _to_number(value)
         if self._kind == "flag":
-            return int(bool(value))
+            return "да" if value else "нет"
         return str(value)
 
 

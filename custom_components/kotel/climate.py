@@ -20,7 +20,7 @@ from homeassistant.components.climate import (  # pyright: ignore[reportMissingI
 )
 from homeassistant.const import (  # pyright: ignore[reportMissingImports]
     ATTR_TEMPERATURE,
-    PRECISION_HALVES,
+    PRECISION_TENTHS,
     UnitOfTemperature,
 )
 from homeassistant.exceptions import (  # pyright: ignore[reportMissingImports]
@@ -59,7 +59,7 @@ class KotelClimate(ClimateEntity):
 
     _attr_should_poll = False
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
-    _attr_precision = PRECISION_HALVES
+    _attr_precision = PRECISION_TENTHS          # текущая температура — с десятыми
     _attr_target_temperature_step = CLIMATE_TEMP_STEP
     _attr_min_temp = CLIMATE_TEMP_MIN
     _attr_max_temp = CLIMATE_TEMP_MAX
