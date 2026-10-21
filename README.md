@@ -5,7 +5,7 @@
 
 Кастомная интеграция Home Assistant для управления параметрами и регистрации показаний датчиков контроллера твердотопливного котла [ReglerPro](https://regler.pro/), реализованная через сервер официального веб-приложения производителя [app.reglerpro.ru](https://app.reglerpro.ru).
 
-<img src="/dashboards/example/dashboard-kotel-20261020.png.png" alt="Рисунок. Пример дашборда контроллера ReglerPro Controller">
+<img src="/dashboards/example/dashboard-kotel-20261020.png" alt="Рисунок. Пример дашборда контроллера ReglerPro Controller">
 
 *Рисунок. Пример дашборда контроллера ReglerPro Controller*
 
