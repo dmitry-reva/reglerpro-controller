@@ -4,7 +4,11 @@ import voluptuous as vol  # pyright: ignore[reportMissingImports]
 from homeassistant import config_entries  # pyright: ignore[reportMissingImports]
 from homeassistant.core import callback  # pyright: ignore[reportMissingImports]
 
+from homeassistant.helpers import config_validation as cv  # pyright: ignore[reportMissingImports]
+from homeassistant.exceptions import HomeAssistantError  # pyright: ignore[reportMissingImports]
+
 from .const import DOMAIN, DEFAULT_URL
+from .profiles import EXPORT_DIR
 from .api import KotelApiClient, KotelApiError
 
 STEP_USER_DATA_SCHEMA = vol.Schema({
@@ -60,21 +64,139 @@ class KotelConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 class KotelOptionsFlow(config_entries.OptionsFlow):
-    """Опции интеграции."""
+    """Опции интеграции: параметры, экспорт и импорт профилей, удаление профилей."""
 
     def __init__(self, config_entry):
         self._config_entry = config_entry
+        self._import_file = None
+        self._import_names = []
+
+    @property
+    def _manager(self):
+        return self.hass.data[DOMAIN]["_profiles"]
 
     async def async_step_init(self, user_input=None):
+        return self.async_show_menu(
+            step_id="init",
+            menu_options=["settings", "export", "import_file", "delete"],
+        )
+
+    # --- параметры -----------------------------------------------------------
+    async def async_step_settings(self, user_input=None):
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
 
         return self.async_show_form(
-            step_id="init",
+            step_id="settings",
             data_schema=vol.Schema({
                 vol.Optional(
                     "scan_interval",
                     default=30,
                 ): vol.All(int, vol.Range(min=10, max=300)),
+            }),
+        )
+
+    # --- экспорт профилей ----------------------------------------------------
+    async def async_step_export(self, user_input=None):
+        choices = self._manager.profile_choices()
+        if not choices:
+            return self.async_abort(reason="no_profiles")
+        errors = {}
+        if user_input is not None:
+            try:
+                result = await self._manager.async_export(
+                    user_input["profiles"], to_www=user_input.get("to_www", False))
+            except HomeAssistantError:
+                errors["base"] = "export_failed"
+            else:
+                return self.async_abort(
+                    reason="export_done",
+                    description_placeholders={
+                        "count": str(result["count"]),
+                        "path": result["path"],
+                        "url": result["url"] or "—",
+                    },
+                )
+        return self.async_show_form(
+            step_id="export",
+            data_schema=vol.Schema({
+                vol.Required("profiles", default=list(choices)): cv.multi_select(choices),
+                vol.Optional("to_www", default=False): bool,
+            }),
+            errors=errors,
+        )
+
+    # --- импорт профилей -----------------------------------------------------
+    async def async_step_import_file(self, user_input=None):
+        files = await self._manager.async_list_export_files()
+        if not files:
+            return self.async_abort(
+                reason="no_files", description_placeholders={"dir": EXPORT_DIR})
+        errors = {}
+        placeholders = {"dir": EXPORT_DIR, "error": ""}
+        if user_input is not None:
+            try:
+                profiles = await self._manager.async_read_export_file(user_input["file"])
+            except HomeAssistantError as err:
+                errors["base"] = "invalid_file"
+                placeholders["error"] = str(err)
+            else:
+                self._import_file = user_input["file"]
+                self._import_names = [p["name"] for p in profiles]
+                return await self.async_step_import_select()
+        return self.async_show_form(
+            step_id="import_file",
+            data_schema=vol.Schema({vol.Required("file"): vol.In(files)}),
+            errors=errors,
+            description_placeholders=placeholders,
+        )
+
+    async def async_step_import_select(self, user_input=None):
+        controllers = {dev_id: info["name"] for dev_id, info in self._manager.controllers().items()}
+        if not controllers:
+            return self.async_abort(reason="no_controllers")
+        if user_input is not None:
+            result = await self._manager.async_import(
+                self._import_file,
+                names=user_input["profiles"],
+                dev_id=user_input["controller"],
+                on_conflict=user_input["on_conflict"],
+            )
+            renamed = ", ".join(f"{old} → {new}" for old, new in result["renamed"].items()) or "—"
+            return self.async_abort(
+                reason="import_done",
+                description_placeholders={
+                    "count": str(len(result["imported"])),
+                    "skipped": str(len(result["skipped"])),
+                    "renamed": renamed,
+                },
+            )
+        return self.async_show_form(
+            step_id="import_select",
+            data_schema=vol.Schema({
+                vol.Required("profiles", default=self._import_names): cv.multi_select(
+                    {name: name for name in self._import_names}),
+                vol.Required("controller", default=next(iter(controllers))): vol.In(controllers),
+                vol.Required("on_conflict", default="rename"): vol.In({
+                    "rename": "Добавить с номером «(2)»",
+                    "overwrite": "Заменить существующий",
+                    "skip": "Пропустить",
+                }),
+            }),
+        )
+
+    # --- удаление профилей ---------------------------------------------------
+    async def async_step_delete(self, user_input=None):
+        choices = self._manager.profile_choices()
+        if not choices:
+            return self.async_abort(reason="no_profiles")
+        if user_input is not None:
+            count = await self._manager.async_delete_many(user_input["profiles"])
+            return self.async_abort(
+                reason="delete_done", description_placeholders={"count": str(count)})
+        return self.async_show_form(
+            step_id="delete",
+            data_schema=vol.Schema({
+                vol.Required("profiles", default=[]): cv.multi_select(choices),
             }),
         )

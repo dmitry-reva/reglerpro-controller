@@ -1,0 +1,228 @@
+# Сервисы интеграции Kotel
+send_command:
+  name: Отправить команду
+  description: "Отправить произвольную команду на устройство (action из functions.js)"
+  fields:
+    device_id:
+      name: ID устройства
+      description: "id_name устройства"
+      required: true
+      selector:
+        text:
+    action:
+      name: Действие
+      description: "Например: temp_w_ust, vent_max, start__, stop___"
+      required: true
+      selector:
+        text:
+    value:
+      name: Значение
+      description: "Числовое значение для range"
+      required: false
+      selector:
+        number:
+          min: -50
+          max: 1000
+          step: 0.5
+          mode: box
+
+# ---------------------------------------------------------------------------
+# Профили настроек
+# ---------------------------------------------------------------------------
+save_profile:
+  name: Сохранить профиль
+  description: Сохранить текущие настройки контроллера как профиль.
+  target:
+    device:
+      integration: kotel
+  fields:
+    name:
+      name: Имя профиля
+      description: Уникальное имя, до 40 символов.
+      required: true
+      example: Зима
+      selector:
+        text:
+    scopes:
+      name: Что сохранять
+      description: По умолчанию только настройки котла.
+      required: false
+      default: [boiler]
+      selector:
+        select:
+          multiple: true
+          options:
+            - { value: boiler, label: Настройки котла }
+            - { value: climate, label: "Климат: режим и цель" }
+            - { value: schedule, label: "Климат: расписание" }
+            - { value: climate_sensor, label: "Климат: датчик" }
+    note:
+      name: Заметка
+      required: false
+      selector:
+        text:
+    overwrite:
+      name: Заменить существующий
+      description: Если профиль с таким именем есть, обновить его.
+      required: false
+      default: false
+      selector:
+        boolean:
+
+apply_profile:
+  name: Применить профиль
+  description: Записать значения профиля в контроллер (только изменившиеся параметры).
+  target:
+    device:
+      integration: kotel
+  fields:
+    name:
+      name: Имя профиля
+      required: true
+      example: Зима
+      selector:
+        text:
+    scopes:
+      name: Что применять
+      description: По умолчанию все области профиля.
+      required: false
+      selector:
+        select:
+          multiple: true
+          options:
+            - { value: boiler, label: Настройки котла }
+            - { value: climate, label: "Климат: режим и цель" }
+            - { value: schedule, label: "Климат: расписание" }
+            - { value: climate_sensor, label: "Климат: датчик" }
+    dry_run:
+      name: Только показать изменения
+      description: Ничего не записывать, вернуть список изменений.
+      required: false
+      default: false
+      selector:
+        boolean:
+    force:
+      name: Игнорировать статус «не в сети»
+      required: false
+      default: false
+      selector:
+        boolean:
+    verify:
+      name: Проверить результат
+      description: Дождаться подтверждения значений от контроллера.
+      required: false
+      default: true
+      selector:
+        boolean:
+
+undo_apply:
+  name: Отменить применение
+  description: Вернуть значения, которые были до последнего применения профиля.
+  target:
+    device:
+      integration: kotel
+  fields:
+    force:
+      name: Игнорировать статус «не в сети»
+      required: false
+      default: false
+      selector:
+        boolean:
+    verify:
+      name: Проверить результат
+      required: false
+      default: true
+      selector:
+        boolean:
+
+delete_profile:
+  name: Удалить профиль
+  target:
+    device:
+      integration: kotel
+  fields:
+    name:
+      name: Имя профиля
+      required: true
+      selector:
+        text:
+
+rename_profile:
+  name: Переименовать профиль
+  target:
+    device:
+      integration: kotel
+  fields:
+    name:
+      name: Текущее имя
+      required: true
+      selector:
+        text:
+    new_name:
+      name: Новое имя
+      required: true
+      selector:
+        text:
+
+list_profiles:
+  name: Список профилей
+  description: Вернуть сохранённые профили (ответ службы).
+  target:
+    device:
+      integration: kotel
+
+export_profiles:
+  name: Экспорт профилей в файл
+  description: >-
+    Записать выбранные профили в JSON-файл /config/kotel_profiles/.
+    Без списка профилей экспортируются все профили выбранных контроллеров.
+  target:
+    device:
+      integration: kotel
+  fields:
+    profiles:
+      name: Профили
+      description: Имена профилей (по умолчанию все).
+      required: false
+      selector:
+        text:
+          multiple: true
+    to_www:
+      name: Положить в www для скачивания
+      description: >-
+        Файл будет доступен по адресу /local/kotel_profiles/... БЕЗ авторизации.
+      required: false
+      default: false
+      selector:
+        boolean:
+
+import_profiles:
+  name: Импорт профилей из файла
+  description: Загрузить профили из файла в каталоге /config/kotel_profiles/.
+  target:
+    device:
+      integration: kotel
+  fields:
+    file:
+      name: Имя файла
+      required: true
+      example: kotel_profiles_20261020_101500.json
+      selector:
+        text:
+    profiles:
+      name: Профили
+      description: Какие профили импортировать (по умолчанию все из файла).
+      required: false
+      selector:
+        text:
+          multiple: true
+    on_conflict:
+      name: Если имя занято
+      required: false
+      default: rename
+      selector:
+        select:
+          options:
+            - { value: rename, label: Добавить с номером }
+            - { value: overwrite, label: Заменить существующий }
+            - { value: skip, label: Пропустить }

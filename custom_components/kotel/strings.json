@@ -1,0 +1,81 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to ReglerPro",
+        "description": "Enter your app.reglerpro.ru account",
+        "data": {
+          "url": "Server URL",
+          "login": "Login",
+          "password": "Password",
+          "home_id": "Home ID"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect to the server",
+      "no_home_id": "No devices found. Specify the home ID"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Kotel options",
+        "menu_options": {
+          "settings": "Polling and settings",
+          "export": "Export profiles to a file",
+          "import_file": "Import profiles from a file",
+          "delete": "Delete profiles"
+        }
+      },
+      "settings": {
+        "title": "Settings",
+        "data": {
+          "scan_interval": "Polling interval, s"
+        }
+      },
+      "export": {
+        "title": "Export profiles",
+        "description": "Choose profiles to export. The file is saved in the kotel_profiles folder inside the configuration folder.",
+        "data": {
+          "profiles": "Profiles",
+          "to_www": "Put into www for download (available WITHOUT authentication at /local/)"
+        }
+      },
+      "import_file": {
+        "title": "Import: choose a file",
+        "description": "Put the profiles file into the {dir} folder inside the configuration folder and select it. {error}",
+        "data": {
+          "file": "File"
+        }
+      },
+      "import_select": {
+        "title": "Import: choose profiles",
+        "data": {
+          "profiles": "Profiles",
+          "controller": "Controller",
+          "on_conflict": "If the name is taken"
+        }
+      },
+      "delete": {
+        "title": "Delete profiles",
+        "description": "Select profiles to delete. This cannot be undone.",
+        "data": {
+          "profiles": "Profiles"
+        }
+      }
+    },
+    "error": {
+      "invalid_file": "The file could not be read",
+      "export_failed": "Export failed"
+    },
+    "abort": {
+      "no_profiles": "There are no saved profiles.",
+      "no_files": "No .json files in {dir}.",
+      "no_controllers": "No Kotel controllers found.",
+      "export_done": "Exported profiles: {count}. File: {path}. Download link: {url}",
+      "import_done": "Imported profiles: {count}, skipped: {skipped}. Renamed: {renamed}",
+      "delete_done": "Deleted profiles: {count}."
+    }
+  }
+}

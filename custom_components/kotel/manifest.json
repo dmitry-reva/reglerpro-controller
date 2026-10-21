@@ -1,7 +1,9 @@
 {
   "domain": "kotel",
   "name": "ReglerPro Controller",
-  "codeowners": ["@dmitry-reva"],
+  "codeowners": [
+    "@dmitry-reva"
+  ],
   "config_flow": true,
   "dependencies": [],
   "documentation": "https://github.com/dmitry-reva/reglerpro-controller",
@@ -9,5 +11,5 @@
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/dmitry-reva/reglerpro-controller/issues",
   "requirements": [],
-  "version": "v1.2.1"
+  "version": "1.3.0"
 }

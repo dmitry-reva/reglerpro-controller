@@ -405,6 +405,28 @@ views:
           - entity: number.kotel_kontroller_ustavka_temperatury_min
           - entity: number.kotel_kontroller_korrektsiia_temperatury
 
+      # ---- 6+. Профили настроек ---------------------------------------------
+      # ID сущностей замените на свои (карточка устройства → сущность → ⚙).
+      - type: entities
+        title: Профили настроек
+        show_header_toggle: false
+        entities:
+          - entity: sensor.kotel_kontroller_aktivnyi_profil
+            name: Активный профиль
+          - entity: select.kotel_kontroller_profil
+            name: Профиль
+          - entity: button.kotel_kontroller_primenit_profil
+            name: Применить выбранный
+          - entity: button.kotel_kontroller_otmenit_primenenie
+            name: Отменить применение
+          - type: section
+          - entity: text.kotel_kontroller_imia_novogo_profilia
+            name: Имя нового профиля
+          - entity: button.kotel_kontroller_sokhranit_profil
+            name: Сохранить как новый
+          - entity: button.kotel_kontroller_obnovit_profil
+            name: Обновить выбранный
+
       # ---- 7. Диагностика ----------------------------------------------------
       - type: entities
         title: Диагностика

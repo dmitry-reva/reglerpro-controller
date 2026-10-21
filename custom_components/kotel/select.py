@@ -17,11 +17,13 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass, entry, async_add_entities):
     coordinator: KotelCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
-    async_add_entities(
-        KotelClimateSensorSelect(coordinator, dev_id, entry.entry_id)
-        for dev_id, dev_data in coordinator.data.items()
-        if dev_data["type"] == DEVICE_TYPE_CONTR
-    )
+    manager = hass.data[DOMAIN]["_profiles"]
+    entities = []
+    for dev_id, dev_data in coordinator.data.items():
+        if dev_data["type"] == DEVICE_TYPE_CONTR:
+            entities.append(KotelClimateSensorSelect(coordinator, dev_id, entry.entry_id))
+            entities.append(KotelProfileSelect(coordinator, dev_id, manager))
+    async_add_entities(entities)
 
 
 class KotelClimateSensorSelect(SelectEntity):
@@ -122,3 +124,46 @@ class KotelClimateSensorSelect(SelectEntity):
         except KotelApiError as err:
             raise HomeAssistantError(f"Не удалось выбрать датчик: {err}") from err
         await self._coordinator.async_request_refresh()
+
+
+class KotelProfileSelect(SelectEntity):
+    """Выбор сохранённого профиля настроек (применяется кнопкой «Применить профиль»)."""
+
+    _attr_should_poll = False
+    _attr_icon = "mdi:content-save-cog"
+
+    def __init__(self, coordinator: KotelCoordinator, dev_id: str, manager):
+        self._coordinator = coordinator
+        self._dev_id = dev_id
+        self._manager = manager
+        self._attr_name = "Профиль"
+        self._attr_unique_id = f"kotel_{dev_id}_profile"
+
+    @property
+    def available(self) -> bool:
+        return self._coordinator.last_update_success
+
+    @property
+    def device_info(self):
+        data = self._coordinator.data.get(self._dev_id, {})
+        return {
+            "identifiers": {(DOMAIN, self._dev_id)},
+            "name": data.get("name", self._dev_id),
+            "manufacturer": "Kotel",
+            "model": "Контроллер",
+        }
+
+    @property
+    def options(self) -> list[str]:
+        return self._manager.profile_names(self._dev_id)
+
+    @property
+    def current_option(self):
+        return self._manager.selected(self._dev_id)
+
+    async def async_added_to_hass(self):
+        self.async_on_remove(self._coordinator.async_add_listener(self.async_write_ha_state))
+        self.async_on_remove(self._manager.async_add_listener(self.async_write_ha_state))
+
+    async def async_select_option(self, option: str) -> None:
+        await self._manager.async_set_selected(self._dev_id, option)

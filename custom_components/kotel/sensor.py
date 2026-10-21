@@ -215,6 +215,8 @@ def _create_contr_sensors(coordinator, dev_id, dev_data):
 
     # Статус онлайн
     sensors.append(KotelContrOnlineSensor(coordinator, dev_id))
+    # Профиль настроек, совпадающий с текущими значениями
+    sensors.append(KotelActiveProfileSensor(coordinator, dev_id))
 
     # --- Диагностические сенсоры (для изучения состояний) ---
     params = dev_data.get("params", {})
@@ -470,6 +472,44 @@ class KotelContrDebugSensor(KotelBaseSensor):
             "mqtt_online": data.get("mqtt_online"),
             "raw_keys": sorted(raw.keys()),
             "list_raw_keys": sorted(list_raw.keys()),
+        }
+
+
+class KotelActiveProfileSensor(KotelBaseSensor):
+    """Какой сохранённый профиль соответствует текущим настройкам котла."""
+
+    def __init__(self, coordinator, dev_id):
+        super().__init__(coordinator, dev_id)
+        self._attr_name = "Активный профиль"
+        self._attr_unique_id = f"kotel_{dev_id}_active_profile"
+        self._attr_icon = "mdi:content-save-check"
+
+    @property
+    def _manager(self):
+        return self._coordinator.hass.data[DOMAIN]["_profiles"]
+
+    async def async_added_to_hass(self):
+        await super().async_added_to_hass()
+        self.async_on_remove(self._manager.async_add_listener(self.async_write_ha_state))
+
+    @property
+    def native_value(self):
+        manager = self._manager
+        if not manager.profile_names(self._dev_id):
+            return "нет профилей"
+        return manager.matching_profile(self._dev_id) or "изменён"
+
+    @property
+    def extra_state_attributes(self):
+        manager = self._manager
+        last = manager.last_applied(self._dev_id) or {}
+        return {
+            "profiles": manager.profile_names(self._dev_id),
+            "selected": manager.selected(self._dev_id),
+            "last_applied": last.get("name"),
+            "last_applied_at": last.get("at"),
+            "last_applied_ok": last.get("ok"),
+            "has_undo": manager.has_undo(self._dev_id),
         }
 
 
