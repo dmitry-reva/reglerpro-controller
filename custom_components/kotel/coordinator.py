@@ -1,15 +1,21 @@
 """Координатор данных для интеграции Kotel."""
 
+from __future__ import annotations
+
+import asyncio
 import json
 import logging
 import math
 import re
 from datetime import timedelta
 
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed  # type: ignore[import-not-found]
+from homeassistant.helpers.update_coordinator import (  # type: ignore[import-not-found]
+    DataUpdateCoordinator,
+    UpdateFailed,
+)
 
 from .api import KotelApiClient, KotelApiError
-from .const import DOMAIN, DEFAULT_SCAN_INTERVAL
+from .const import DEFAULT_SCAN_INTERVAL, DOMAIN
 from .params_parser import get_params
 
 _LOGGER = logging.getLogger(__name__)
@@ -105,12 +111,13 @@ def _parse_climate(pick) -> dict:
 class KotelCoordinator(DataUpdateCoordinator):
     """Координатор, опрашивающий сервер taptop.php по расписанию."""
 
-    def __init__(self, hass, api: KotelApiClient):
+    def __init__(self, hass, api: KotelApiClient,
+                 scan_interval: int = DEFAULT_SCAN_INTERVAL):
         super().__init__(
             hass,
             _LOGGER,
             name=DOMAIN,
-            update_interval=timedelta(seconds=DEFAULT_SCAN_INTERVAL),
+            update_interval=timedelta(seconds=scan_interval),
         )
         self._api = api
 
@@ -118,7 +125,7 @@ class KotelCoordinator(DataUpdateCoordinator):
         """Получить свежие данные всех устройств.
 
         Шаг 1: get_all_dev — список всех устройств дома.
-        Шаг 2: для каждого контроллера — get_big_contr (детальные данные).
+        Шаг 2: для всех контроллеров — get_big_contr параллельно.
         Шаг 3: для датчиков используются данные из списка.
         """
         try:
@@ -126,44 +133,68 @@ class KotelCoordinator(DataUpdateCoordinator):
         except KotelApiError as err:
             raise UpdateFailed(f"Не удалось получить список устройств: {err}") from err
 
-        result = {}
+        devices = [dev for dev in devices if isinstance(dev, dict)]
+        controllers = [
+            dev for dev in devices
+            if dev.get("type") == "contr" and dev.get("id_name")
+        ]
+        if controllers:
+            results = await asyncio.gather(
+                *(self._api.get_controller(dev["id_name"]) for dev in controllers),
+                return_exceptions=True,
+            )
+        else:
+            results = []
+
+        details_by_id: dict[str, dict] = {}
+        for dev, result in zip(controllers, results):
+            dev_id = dev["id_name"]
+            if isinstance(result, Exception):
+                if isinstance(result, KotelApiError):
+                    _LOGGER.warning(
+                        "Не удалось получить данные контроллера %s: %s", dev_id, result)
+                else:
+                    _LOGGER.error(
+                        "Неожиданная ошибка при получении контроллера %s: %r",
+                        dev_id, result,
+                        exc_info=(type(result), result, result.__traceback__),
+                    )
+                details_by_id[dev_id] = {}
+            else:
+                details_by_id[dev_id] = result or {}
+
+        result_data = {}
 
         for dev in devices:
             dev_type = dev.get("type")
             dev_id = dev.get("id_name", "")
             dev_name = dev.get("name", dev_id)
+            if not dev_id:
+                continue
 
             if dev_type == "contr":
-                # Контроллер: получаем детальные данные
-                try:
-                    details = await self._api.get_controller(dev_id)
-                except KotelApiError as err:
-                    _LOGGER.warning("Не удалось получить данные контроллера %s: %s", dev_id, err)
-                    details = dev  # используем данные из списка
-                if not details:
-                    details = dev  # пустой ответ — тоже фолбэк на список
-
-                params = get_params(details.get("params", ""))
+                details = details_by_id.get(dev_id) or dev
 
                 def pick(key, default=None, _details=details, _dev=dev):
                     # детальные данные приоритетнее, но если поля нет — берём из списка
                     value = _details.get(key)
                     return value if value is not None else _dev.get(key, default)
 
-                result[dev_id] = {
+                params = get_params(pick("params", ""))
+                result_data[dev_id] = {
                     "type": "contr",
                     "name": dev_name,
                     "id": dev_id,
                     "params": params,
-                    "mqtt_online": details.get("mqtt_online", "0"),
+                    # приводим к "1"/"0", как ожидают сенсоры и проверки профилей
+                    "mqtt_online": "1" if _truthy(pick("mqtt_online", 0)) else "0",
                     "climate": _parse_climate(pick),
                     "raw": details,
                     "list_raw": dev,  # элемент из get_all_dev (для диагностики)
                 }
 
             elif dev_type == "dt":
-                # Датчик температуры: данные уже есть в списке
-                result[dev_id] = {
+                result_data[dev_id] = {
                     "type": "dt",
                     "name": dev_name,
                     "id": dev_id,
@@ -175,13 +206,13 @@ class KotelCoordinator(DataUpdateCoordinator):
         # Температура датчика климат-контроля: контроллер отдаёт её целой
         # (sensor_temp = "24"), а у самого датчика из списка устройств есть
         # десятые. Если датчик найден, берём его значение.
-        for dev_data in result.values():
+        for dev_data in result_data.values():
             if dev_data["type"] != "contr":
                 continue
             climate = dev_data["climate"]
-            sensor = result.get(climate.get("sensor_id"))
+            sensor = result_data.get(climate.get("sensor_id"))
             precise = to_number(sensor.get("temp")) if sensor else None
             if precise is not None:
                 climate["sensor_temp"] = precise
 
-        return result
+        return result_data

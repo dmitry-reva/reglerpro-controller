@@ -7,7 +7,7 @@ from homeassistant.core import callback  # pyright: ignore[reportMissingImports]
 from homeassistant.helpers import config_validation as cv  # pyright: ignore[reportMissingImports]
 from homeassistant.exceptions import HomeAssistantError  # pyright: ignore[reportMissingImports]
 
-from .const import DOMAIN, DEFAULT_URL
+from .const import CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL, DEFAULT_URL, DOMAIN
 from .profiles import EXPORT_DIR, KIND_LABELS
 from .api import KotelApiClient, KotelApiError
 
@@ -29,27 +29,36 @@ class KotelConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors = {}
 
         if user_input is not None:
+            # Одна запись на связку «сервер + логин + дом»: защита от дублей.
+            home_id = (user_input.get("home_id") or "").strip()
+            unique_id = "|".join((
+                user_input["url"].strip().rstrip("/").lower(),
+                user_input["login"].strip().casefold(),
+                home_id,
+            ))
+            await self.async_set_unique_id(unique_id)
+            self._abort_if_unique_id_configured()
+
             # Проверяем соединение
             api = KotelApiClient(
                 base_url=user_input["url"],
                 login=user_input["login"],
                 password=user_input["password"],
-                home_id=user_input.get("home_id", ""),
+                home_id=home_id,
             )
             try:
                 devices = await api.get_all_devices()
-                await api.close()
-
-                if not devices and not user_input.get("home_id"):
-                    errors["base"] = "no_home_id"
-                else:
+            except KotelApiError:
+                errors["base"] = "cannot_connect"
+            else:
+                if devices:
                     return self.async_create_entry(
-                        title=f"Kotel ({user_input['login']})",
+                        title=f"ReglerPro ({home_id or user_input['login']})",
                         data=user_input,
                     )
-            except KotelApiError:
+                errors["base"] = "no_home_id" if not home_id else "no_devices"
+            finally:
                 await api.close()
-                errors["base"] = "cannot_connect"
 
         return self.async_show_form(
             step_id="user",
@@ -60,14 +69,14 @@ class KotelConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @staticmethod
     @callback
     def async_get_options_flow(config_entry):
-        return KotelOptionsFlow(config_entry)
+        return KotelOptionsFlow()
 
 
 class KotelOptionsFlow(config_entries.OptionsFlow):
     """Опции интеграции: параметры, экспорт и импорт профилей, удаление профилей."""
 
-    def __init__(self, config_entry):
-        self._config_entry = config_entry
+    def __init__(self, config_entry=None) -> None:
+        super().__init__()
         self._import_file = None
         self._import_choices = {}
 
@@ -90,8 +99,9 @@ class KotelOptionsFlow(config_entries.OptionsFlow):
             step_id="settings",
             data_schema=vol.Schema({
                 vol.Optional(
-                    "scan_interval",
-                    default=30,
+                    CONF_SCAN_INTERVAL,
+                    default=self.config_entry.options.get(
+                        CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
                 ): vol.All(int, vol.Range(min=10, max=300)),
             }),
         )

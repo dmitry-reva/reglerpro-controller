@@ -1,4 +1,4 @@
-"""Службы Home Assistant для профилей настроек Kotel."""
+"""Службы Home Assistant для профилей настроек и отладочных команд Kotel."""
 
 from __future__ import annotations
 
@@ -11,12 +11,16 @@ from homeassistant.core import (  # pyright: ignore[reportMissingImports]
     SupportsResponse,
     callback,
 )
-from homeassistant.exceptions import ServiceValidationError  # pyright: ignore[reportMissingImports]
+from homeassistant.exceptions import (  # pyright: ignore[reportMissingImports]
+    HomeAssistantError,
+    ServiceValidationError,
+)
 from homeassistant.helpers import (  # pyright: ignore[reportMissingImports]
     config_validation as cv,
     device_registry as dr,
 )
 
+from .api import KotelApiError
 from .const import DOMAIN
 from .profiles import ALL_KINDS, ALL_SCOPES, KIND_BOILER, KIND_CLIMATE, KotelProfileManager
 
@@ -74,6 +78,12 @@ IMPORT_SCHEMA = _schema({
     vol.Optional("profiles"): vol.All(cv.ensure_list, [cv.string]),
     vol.Optional("kind"): _KIND,
     vol.Optional("on_conflict", default="rename"): vol.In(["overwrite", "skip", "rename"]),
+})
+# send_command — низкоуровневый доступ к API; device_id здесь id_name, не target.
+SEND_COMMAND_SCHEMA = vol.Schema({
+    vol.Required("device_id"): cv.string,
+    vol.Required("action"): cv.string,
+    vol.Optional("value", default=0): vol.Coerce(float),
 })
 
 
@@ -216,7 +226,23 @@ def async_register_services(hass: HomeAssistant) -> None:
             kind=call.data.get("kind"), dev_id=dev_id,
             on_conflict=call.data["on_conflict"])
 
+    async def send_command(call: ServiceCall):
+        """Отправить произвольную команду (action из functions.js)."""
+        manager = _manager(hass)
+        dev_id = call.data["device_id"]
+        controller = manager.controllers().get(dev_id)
+        if controller is None:
+            raise ServiceValidationError(f"Контроллер {dev_id} не найден")
+        try:
+            return await controller["api"].send_command(
+                call.data["action"], dev_id, call.data["value"])
+        except KotelApiError as err:
+            raise HomeAssistantError(
+                f"Команда {call.data['action']} не выполнена: {err}") from err
+
     register = hass.services.async_register
+    register(DOMAIN, "send_command", send_command, schema=SEND_COMMAND_SCHEMA,
+             supports_response=SupportsResponse.OPTIONAL)
     register(DOMAIN, "save_profile", save_profile, schema=SAVE_SCHEMA,
              supports_response=SupportsResponse.OPTIONAL)
     register(DOMAIN, "apply_profile", apply_profile, schema=APPLY_SCHEMA,
@@ -234,7 +260,7 @@ def async_register_services(hass: HomeAssistant) -> None:
 
 
 SERVICE_NAMES = (
-    "save_profile", "apply_profile", "undo_apply", "delete_profile",
+    "send_command", "save_profile", "apply_profile", "undo_apply", "delete_profile",
     "rename_profile", "list_profiles", "export_profiles", "import_profiles",
 )
 

@@ -1,0 +1,186 @@
+# =============================================================================
+#  Дашборд «Котёл» в стиле Mushroom
+#
+#  ТРЕБУЕТСЯ HACS-расширение Mushroom:
+#    HACS → Frontend → Mushroom → Установить → перезапустить HA.
+#  (Опционально: card-mod и kiosk-mode, но они не обязательны.)
+#
+#  Это самый популярный «карточный» стиль: крупные иконки, чипы статуса,
+#  минимум текста. Хорошо смотрится на телефоне.
+#
+#  ПОДКЛЮЧЕНИЕ
+#   1. Скопируйте www/kotel/controller.png в /config/www/kotel/.
+#   2. Создайте панель и вставьте файл в Raw configuration editor.
+#   3. Замените префикс kotel_kontroller на свой (Ctrl+H).
+# =============================================================================
+title: Котёл
+views:
+  - title: Котёл
+    path: kotel
+    icon: mdi:fire
+    cards:
+      # --- чипы статуса ------------------------------------------------------
+      - type: custom:mushroom-chips-card
+        chips:
+          - type: entity
+            entity: sensor.kotel_kontroller_status_podkliucheniia
+            icon: mdi:wifi
+            icon_color: green
+            content_info: state
+          - type: entity
+            entity: sensor.kotel_kontroller_sostoianie_raboty
+            icon: mdi:state-machine
+            content_info: state
+          - type: entity
+            entity: sensor.kotel_kontroller_temperatura_shneka
+            icon: mdi:thermometer
+            content_info: state
+
+      # --- большая температура ------------------------------------------------
+      - type: custom:mushroom-template-card
+        primary: "{{ states('sensor.kotel_kontroller_temperatura_vody') }} °C"
+        secondary: >-
+          Вода · уставка {{ states('sensor.kotel_kontroller_ustavka_temperatury_max') }} °C
+        icon: mdi:water-thermometer
+        icon_color: >-
+          {% if is_state('sensor.kotel_kontroller_status_podkliucheniia', 'online') %}
+          orange
+          {% else %}
+          grey
+          {% endif %}
+        tap_action:
+          action: more-info
+          entity: sensor.kotel_kontroller_temperatura_vody
+        layout: horizontal
+
+      # --- термостат ----------------------------------------------------------
+      - type: custom:mushroom-climate-card
+        entity: climate.kotel_kontroller_termostat
+        name: Климат-контроль
+        icon: mdi:home-thermometer
+        show_temperature_control: true
+        hvac_modes:
+          - "off"
+          - heat
+          - auto
+        layout: vertical
+        collapsible_controls: true
+
+      # --- плитки -------------------------------------------------------------
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: custom:mushroom-entity-card
+            entity: sensor.kotel_kontroller_ustavka_temperatury_max
+            name: Уставка макс.
+            icon: mdi:thermometer-high
+            layout: vertical
+          - type: custom:mushroom-entity-card
+            entity: sensor.kotel_kontroller_ustavka_temperatury_min
+            name: Уставка мин.
+            icon: mdi:thermometer-low
+            layout: vertical
+          - type: custom:mushroom-entity-card
+            entity: sensor.kotel_kontroller_klimat_temperatura_datchika
+            name: В помещении
+            icon: mdi:home-thermometer-outline
+            layout: vertical
+          - type: custom:mushroom-entity-card
+            entity: sensor.kotel_kontroller_klimat_kontrol
+            name: Режим климата
+            icon: mdi:thermostat
+            layout: vertical
+
+      # --- старт/стоп ---------------------------------------------------------
+      - type: custom:mushroom-template-card
+        primary: "{{ 'Котёл работает' if is_state('switch.kotel_kontroller_start_stop', 'on') else 'Котёл остановлен' }}"
+        secondary: "Нажмите, чтобы {{ 'остановить' if is_state('switch.kotel_kontroller_start_stop', 'on') else 'запустить' }}"
+        icon: "{{ 'mdi:power' if is_state('switch.kotel_kontroller_start_stop', 'on') else 'mdi:power-off' }}"
+        icon_color: "{{ 'green' if is_state('switch.kotel_kontroller_start_stop', 'on') else 'red' }}"
+        tap_action:
+          action: toggle
+          entity: switch.kotel_kontroller_start_stop
+          confirmation:
+            text: Переключить котёл?
+        layout: horizontal
+
+      # --- быстрые настройки ---------------------------------------------------
+      - type: custom:mushroom-title-card
+        title: Настройки
+        subtitle: Изменения применяются сразу
+
+      - type: custom:mushroom-number-card
+        entity: number.kotel_kontroller_ustavka_temperatury_max
+        name: Уставка (макс.)
+        icon: mdi:thermometer-high
+        display_mode: slider
+      - type: custom:mushroom-number-card
+        entity: number.kotel_kontroller_ustavka_temperatury_min
+        name: Уставка (мин.)
+        icon: mdi:thermometer-low
+        display_mode: slider
+      - type: custom:mushroom-number-card
+        entity: number.kotel_kontroller_korrektsiia_temperatury
+        name: Коррекция
+        icon: mdi:thermometer-plus
+        display_mode: slider
+
+      # --- график --------------------------------------------------------------
+      - type: history-graph
+        title: Температура за 24 часа
+        hours_to_show: 24
+        entities:
+          - entity: sensor.kotel_kontroller_temperatura_vody
+            name: Вода
+          - entity: sensor.kotel_kontroller_klimat_temperatura_datchika
+            name: Помещение
+          - entity: sensor.kotel_kontroller_ustavka_temperatury_max
+            name: Уставка макс.
+
+      # --- профили -------------------------------------------------------------
+      - type: custom:mushroom-title-card
+        title: Профили
+        subtitle: Применяются кнопкой, а не выбором
+
+      - type: entities
+        title: Котёл
+        show_header_toggle: false
+        entities:
+          - entity: sensor.kotel_kontroller_aktivnyi_profil
+            name: Активный
+          - entity: select.kotel_kontroller_profil
+          - entity: button.kotel_kontroller_primenit_profil
+          - entity: button.kotel_kontroller_otmenit_primenenie
+
+      - type: entities
+        title: Климат
+        show_header_toggle: false
+        entities:
+          - entity: sensor.kotel_kontroller_aktivnyi_profil_klimata
+            name: Активный
+          - entity: select.kotel_kontroller_profil_klimata
+          - entity: button.kotel_kontroller_primenit_profil_klimata
+          - entity: button.kotel_kontroller_otmenit_primenenie_klimat
+
+      # --- аварии --------------------------------------------------------------
+      - type: conditional
+        conditions:
+          - condition: or
+            conditions:
+              - condition: state
+                entity: sensor.kotel_kontroller_trevoga_po_vode
+                state: "да"
+              - condition: state
+                entity: sensor.kotel_kontroller_avariia_shneka
+                state: "да"
+              - condition: state
+                entity: sensor.kotel_kontroller_oshibka_simistora
+                state: "да"
+        card:
+          type: markdown
+          content: >
+            ## ⚠️ Есть авария
+
+            Откройте раздел **Диагностика** и проверьте датчики и шнек.
+

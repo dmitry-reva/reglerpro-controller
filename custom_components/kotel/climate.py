@@ -9,24 +9,23 @@
 hvac_action: tstatNow = 0 — нагрев, tstatNow = 1 — охлаждение.
 """
 
+from __future__ import annotations
+
 import asyncio
 import logging
 
-from homeassistant.components.climate import (  # pyright: ignore[reportMissingImports]
+from homeassistant.components.climate import (
     ClimateEntity,
     ClimateEntityFeature,
     HVACAction,
     HVACMode,
 )
-from homeassistant.const import (  # pyright: ignore[reportMissingImports]
+from homeassistant.const import (
     ATTR_TEMPERATURE,
     PRECISION_TENTHS,
     UnitOfTemperature,
 )
-from homeassistant.exceptions import (  # pyright: ignore[reportMissingImports]
-    HomeAssistantError,
-    ServiceValidationError,
-)
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 
 from .api import KotelApiError
 from .const import (
@@ -41,6 +40,7 @@ from .const import (
     TSTAT_MODE_CONST,
 )
 from .coordinator import KotelCoordinator, to_number
+from .entity import KotelEntity
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -54,10 +54,9 @@ async def async_setup_entry(hass, entry, async_add_entities):
     )
 
 
-class KotelClimate(ClimateEntity):
+class KotelClimate(KotelEntity, ClimateEntity):
     """Климат-контроль котла (по датчику температуры помещения)."""
 
-    _attr_should_poll = False
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_precision = PRECISION_TENTHS          # текущая температура — с десятыми
     _attr_target_temperature_step = CLIMATE_TEMP_STEP
@@ -71,22 +70,23 @@ class KotelClimate(ClimateEntity):
         | ClimateEntityFeature.TURN_ON
         | ClimateEntityFeature.TURN_OFF
     )
+    _attr_icon = "mdi:home-thermometer"
 
     def __init__(self, coordinator: KotelCoordinator, dev_id: str, entry_id: str):
-        self._coordinator = coordinator
-        self._dev_id = dev_id
+        super().__init__(
+            coordinator, dev_id,
+            unique_suffix="climate",
+            translation_key="thermostat",
+        )
         self._entry_id = entry_id
         self._lock = asyncio.Lock()   # команды климата выполняются строго по очереди
-        self._attr_name = "Термостат"
-        self._attr_unique_id = f"kotel_{dev_id}_climate"
-        self._attr_icon = "mdi:home-thermometer"
 
     # ------------------------------------------------------------------
     # Данные
     # ------------------------------------------------------------------
     @property
     def _data(self) -> dict:
-        return self._coordinator.data.get(self._dev_id, {})
+        return self.coordinator.data.get(self._dev_id, {})
 
     @property
     def _climate(self) -> dict:
@@ -94,25 +94,7 @@ class KotelClimate(ClimateEntity):
 
     @property
     def _api(self):
-        return self._coordinator.hass.data[DOMAIN][self._entry_id]["api"]
-
-    @property
-    def available(self) -> bool:
-        return self._coordinator.last_update_success
-
-    @property
-    def device_info(self):
-        return {
-            "identifiers": {(DOMAIN, self._dev_id)},
-            "name": self._data.get("name", self._dev_id),
-            "manufacturer": "Kotel",
-            "model": "Контроллер",
-        }
-
-    async def async_added_to_hass(self):
-        self.async_on_remove(
-            self._coordinator.async_add_listener(self.async_write_ha_state)
-        )
+        return self.coordinator.hass.data[DOMAIN][self._entry_id]["api"]
 
     # ------------------------------------------------------------------
     # Состояние
@@ -177,7 +159,7 @@ class KotelClimate(ClimateEntity):
         climat_on_off — переключатель без явного значения, поэтому решение
         нельзя принимать по устаревшему состоянию.
         """
-        await self._coordinator.async_refresh()
+        await self.coordinator.async_refresh()
         return self._climate
 
     async def _ensure_enabled(self, want: bool) -> None:
@@ -192,7 +174,7 @@ class KotelClimate(ClimateEntity):
             except KotelApiError as err:
                 raise HomeAssistantError(f"Ошибка команды климат-контроля: {err}") from err
             finally:
-                await self._coordinator.async_request_refresh()
+                await self.coordinator.async_request_refresh()
 
     async def async_set_hvac_mode(self, hvac_mode):
         async def action():
@@ -242,12 +224,6 @@ class KotelClimate(ClimateEntity):
         temperature = kwargs.get(ATTR_TEMPERATURE)
         if temperature is None:
             return
-        if self._climate.get("mode") in SCHEDULE_MODES:
-            raise ServiceValidationError(
-                "В режиме расписания температура задаётся для периодов "
-                "(number «Расписание … t°»). Для постоянной температуры "
-                "выберите режим «Нагрев»."
-            )
         # шаг 0.5 °C, диапазон как в приложении
         value = round(float(temperature) / CLIMATE_TEMP_STEP) * CLIMATE_TEMP_STEP
         value = min(max(value, CLIMATE_TEMP_MIN), CLIMATE_TEMP_MAX)
@@ -255,6 +231,13 @@ class KotelClimate(ClimateEntity):
             value = int(value)
 
         async def action():
+            climate = await self._fresh_climate()
+            if climate.get("mode") in SCHEDULE_MODES:
+                raise ServiceValidationError(
+                    "В режиме расписания температура задаётся для периодов "
+                    "(number «Расписание …»). Для постоянной температуры "
+                    "выберите режим «Нагрев»."
+                )
             await self._api.set_climate_value(self._dev_id, "temp_dt", value)
 
         await self._run(action)

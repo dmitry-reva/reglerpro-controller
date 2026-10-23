@@ -1,0 +1,331 @@
+# =============================================================================
+#  Дашборд «Котёл» — современный Sections-вид (Home Assistant 2024.3+)
+#  Только штатные карточки, HACS не требуется.
+#
+#  КАК ПОДКЛЮЧИТЬ
+#   1. Скопируйте www/kotel/controller.png в /config/www/kotel/controller.png
+#      (папка www должна быть; после создания перезапустите HA).
+#   2. Настройки → Панели → Добавить панель → «Новая панель с нуля».
+#   3. ⋮ → «Изменить» → ⋮ → «Raw configuration editor» → вставьте файл.
+#   4. Замените префикс kotel_kontroller на свой: карточка устройства →
+#      сущность → ⚙. В редакторе работает Ctrl+H.
+#
+#  Почему Sections: адаптивная сетка, крупные tile-карточки, нормально
+#  работает и на телефоне, и на планшете. Это рекомендуемый вариант.
+# =============================================================================
+title: Котёл
+views:
+  # ---------------------------------------------------------------------------
+  # 1. Обзор
+  # ---------------------------------------------------------------------------
+  - title: Обзор
+    path: overview
+    icon: mdi:fire
+    type: sections
+    max_columns: 4
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: Контроллер
+            heading_style: title
+            icon: mdi:fire
+
+          - type: conditional
+            conditions:
+              - condition: or
+                conditions:
+                  - condition: state
+                    entity: sensor.kotel_kontroller_trevoga_po_vode
+                    state: "да"
+                  - condition: state
+                    entity: sensor.kotel_kontroller_avariia_shneka
+                    state: "да"
+                  - condition: state
+                    entity: sensor.kotel_kontroller_oshibka_datchika_temperatury_vody
+                    state: "да"
+                  - condition: state
+                    entity: sensor.kotel_kontroller_oshibka_datchika_temperatury_shneka
+                    state: "да"
+                  - condition: state
+                    entity: sensor.kotel_kontroller_oshibka_simistora
+                    state: "да"
+            card:
+              type: markdown
+              content: >
+                ## ⚠️ Неисправность котла
+
+                Проверьте аварии и ошибки в разделе **Диагностика**.
+
+          - type: tile
+            entity: sensor.kotel_kontroller_temperatura_vody
+            name: Температура воды
+            icon: mdi:water-thermometer
+            vertical: true
+            grid_options:
+              columns: 6
+              rows: 2
+            features:
+              - type: trend-graph
+
+          - type: tile
+            entity: sensor.kotel_kontroller_sostoianie_raboty
+            name: Состояние
+            icon: mdi:state-machine
+            vertical: true
+
+          - type: tile
+            entity: sensor.kotel_kontroller_status_podkliucheniia
+            name: Связь
+            icon: mdi:wifi
+            vertical: true
+
+          - type: tile
+            entity: sensor.kotel_kontroller_ustavka_temperatury_max
+            name: Уставка (макс.)
+            icon: mdi:thermometer-high
+            vertical: true
+
+          - type: tile
+            entity: sensor.kotel_kontroller_ustavka_temperatury_min
+            name: Уставка (мин.)
+            icon: mdi:thermometer-low
+            vertical: true
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Термостат
+            heading_style: title
+            icon: mdi:home-thermometer
+
+          - type: thermostat
+            entity: climate.kotel_kontroller_termostat
+            name: Климат-контроль
+            features:
+              - type: climate-hvac-modes
+                hvac_modes:
+                  - "off"
+                  - heat
+                  - auto
+              - type: climate-preset-modes
+                style: dropdown
+                preset_modes:
+                  - Расписание 7/7
+                  - Расписание 5/2
+                  - Расписание 4/1/2
+
+          - type: tile
+            entity: select.kotel_kontroller_datchik_klimat_kontrolia
+            name: Датчик температуры
+            icon: mdi:thermometer-check
+            vertical: false
+
+          - type: tile
+            entity: sensor.kotel_kontroller_klimat_temperatura_datchika
+            name: Температура в помещении
+            icon: mdi:home-thermometer-outline
+            vertical: false
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Управление
+            heading_style: title
+            icon: mdi:tune
+
+          - type: tile
+            entity: switch.kotel_kontroller_start_stop
+            name: Старт / Стоп
+            icon: mdi:power
+            vertical: true
+            tap_action:
+              action: toggle
+              confirmation:
+                text: Переключить котёл?
+
+          - type: tile
+            entity: number.kotel_kontroller_ustavka_temperatury_max
+            name: Уставка (макс.)
+            icon: mdi:thermometer-high
+            vertical: true
+
+          - type: tile
+            entity: number.kotel_kontroller_ustavka_temperatury_min
+            name: Уставка (мин.)
+            icon: mdi:thermometer-low
+            vertical: true
+
+          - type: tile
+            entity: number.kotel_kontroller_korrektsiia_temperatury
+            name: Коррекция
+            icon: mdi:thermometer-plus
+            vertical: true
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Профили
+            heading_style: title
+            icon: mdi:content-save-cog
+
+          - type: entities
+            title: Котёл
+            show_header_toggle: false
+            entities:
+              - entity: sensor.kotel_kontroller_aktivnyi_profil
+                name: Активный
+              - entity: select.kotel_kontroller_profil
+                name: Профиль
+              - entity: button.kotel_kontroller_primenit_profil
+                name: Применить
+              - entity: button.kotel_kontroller_otmenit_primenenie
+                name: Отменить
+
+          - type: entities
+            title: Климат
+            show_header_toggle: false
+            entities:
+              - entity: sensor.kotel_kontroller_aktivnyi_profil_klimata
+                name: Активный
+              - entity: select.kotel_kontroller_profil_klimata
+                name: Профиль
+              - entity: button.kotel_kontroller_primenit_profil_klimata
+                name: Применить
+              - entity: button.kotel_kontroller_otmenit_primenenie_klimat
+                name: Отменить
+
+  # ---------------------------------------------------------------------------
+  # 2. Климат и расписание
+  # ---------------------------------------------------------------------------
+  - title: Климат
+    path: climate
+    icon: mdi:home-thermometer
+    type: sections
+    max_columns: 3
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: Режим
+            heading_style: title
+
+          - type: thermostat
+            entity: climate.kotel_kontroller_termostat
+            features:
+              - type: climate-hvac-modes
+                hvac_modes: ["off", heat, auto]
+              - type: climate-preset-modes
+                style: dropdown
+                preset_modes:
+                  - Расписание 7/7
+                  - Расписание 5/2
+                  - Расписание 4/1/2
+
+          - type: entities
+            title: Датчик климата
+            entities:
+              - entity: select.kotel_kontroller_datchik_klimat_kontrolia
+              - entity: sensor.kotel_kontroller_klimat_temperatura_datchika
+                name: Температура
+              - entity: sensor.kotel_kontroller_klimat_tselevaia_temperatura
+                name: Целевая температура
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Расписание 7/7
+            heading_style: subtitle
+
+          - type: entities
+            title: Периоды
+            entities:
+              - entity: number.kotel_kontroller_raspisanie_7_7_pn_vs_p1_nachalo
+                name: П1 — начало
+              - entity: number.kotel_kontroller_raspisanie_7_7_pn_vs_p1_temperatura
+                name: П1 — температура
+              - entity: number.kotel_kontroller_raspisanie_7_7_pn_vs_p2_nachalo
+                name: П2 — начало
+              - entity: number.kotel_kontroller_raspisanie_7_7_pn_vs_p2_temperatura
+                name: П2 — температура
+              - entity: number.kotel_kontroller_raspisanie_7_7_pn_vs_p3_nachalo
+                name: П3 — начало
+              - entity: number.kotel_kontroller_raspisanie_7_7_pn_vs_p3_temperatura
+                name: П3 — температура
+              - entity: number.kotel_kontroller_raspisanie_7_7_pn_vs_p4_nachalo
+                name: П4 — начало
+              - entity: number.kotel_kontroller_raspisanie_7_7_pn_vs_p4_temperatura
+                name: П4 — температура
+
+          - type: markdown
+            content: >
+              Остальные наборы (5/2 и 4/1/2) — в разделе **Диагностика →
+              Расписание**. Или добавьте свои `number`-сущности в эту карточку.
+
+  # ---------------------------------------------------------------------------
+  # 3. Диагностика
+  # ---------------------------------------------------------------------------
+  - title: Диагностика
+    path: diagnostics
+    icon: mdi:bug-outline
+    type: sections
+    max_columns: 3
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: Аварии и ошибки
+            heading_style: title
+
+          - type: entities
+            title: Состояние
+            entities:
+              - entity: sensor.kotel_kontroller_trevoga_po_vode
+              - entity: sensor.kotel_kontroller_avariia_shneka
+              - entity: sensor.kotel_kontroller_oshibka_datchika_temperatury_vody
+              - entity: sensor.kotel_kontroller_oshibka_datchika_temperatury_shneka
+              - entity: sensor.kotel_kontroller_oshibka_simistora
+              - entity: sensor.kotel_kontroller_ventiliator_vkliuchen
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Параметры
+            heading_style: title
+
+          - type: entities
+            title: Диагностика
+            entities:
+              - entity: sensor.kotel_kontroller_versiia_proshivki
+              - entity: sensor.kotel_kontroller_diagnostika_parametrov
+                name: Разобрано параметров
+              - type: attribute
+                entity: sensor.kotel_kontroller_diagnostika_parametrov
+                attribute: params_format
+                name: Формат params
+              - type: attribute
+                entity: sensor.kotel_kontroller_diagnostika_parametrov
+                attribute: params_raw
+                name: Строка params
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: История
+            heading_style: title
+
+          - type: history-graph
+            title: Температура за 24 часа
+            hours_to_show: 24
+            entities:
+              - entity: sensor.kotel_kontroller_temperatura_vody
+                name: Вода
+              - entity: sensor.kotel_kontroller_ustavka_temperatury_max
+                name: Уставка макс.
+              - entity: sensor.kotel_kontroller_ustavka_temperatury_min
+                name: Уставка мин.
+              - entity: sensor.kotel_kontroller_klimat_temperatura_datchika
+                name: Помещение
+
+
+

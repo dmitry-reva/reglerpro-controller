@@ -1,18 +1,36 @@
 """Клиент API для Kotel (на основе функций из functions.js)."""
 
-import logging
-import aiohttp  # pyright: ignore[reportMissingImports]
+from __future__ import annotations
+
 import asyncio
+import logging
+
+import aiohttp  # pyright: ignore[reportMissingImports]
+
 from .const import (
-    API_PATH,
     ACTION_CLIMATE_GET_SENSORS,
     ACTION_CLIMATE_MODE,
     ACTION_CLIMATE_ON_OFF,
     ACTION_CLIMATE_RANGE,
     ACTION_CLIMATE_SELECT_SENSOR,
+    API_PATH,
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+_REDACT_KEYS = {"login", "password"}
+
+
+def _redact(value):
+    """Скрыть учётные данные, если сервер вернул их в ответе."""
+    if isinstance(value, dict):
+        return {
+            key: ("***" if key in _REDACT_KEYS else _redact(item))
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [_redact(item) for item in value]
+    return value
 
 
 class KotelApiError(Exception):
@@ -20,24 +38,35 @@ class KotelApiError(Exception):
 
 
 class KotelApiClient:
-    # Асинхронный клиент для общения с сервером taptop.php
-    def __init__(self, base_url: str, login: str, password: str, home_id: str = ""):
+    """Асинхронный клиент для общения с сервером taptop.php."""
+
+    def __init__(
+        self,
+        base_url: str,
+        login: str,
+        password: str,
+        home_id: str = "",
+        session: aiohttp.ClientSession | None = None,
+    ):
         self._base_url = base_url.rstrip("/")
         self._login = login
         self._password = password
         self._home_id = home_id
-        self._session: aiohttp.ClientSession | None = None
+        self._session = session
+        self._owns_session = session is None
 
     async def _get_session(self) -> aiohttp.ClientSession:
         if self._session is None or self._session.closed:
             self._session = aiohttp.ClientSession()
+            self._owns_session = True
         return self._session
 
     async def _post(self, payload: dict) -> dict | list:
         """Отправка POST-запроса к taptop.php (аналог post_action из functions.js)."""
         url = f"{self._base_url}{API_PATH}"
         session = await self._get_session()
-        _LOGGER.debug("POST %s | action=%s", url, payload.get("action"))
+        action = payload.get("action")
+        _LOGGER.debug("POST %s | action=%s", url, action)
         try:
             async with session.post(
                 url,
@@ -47,10 +76,13 @@ class KotelApiClient:
             ) as resp:
                 if resp.status != 200:
                     raise KotelApiError(f"HTTP {resp.status}")
-                data = await resp.json()
-                _LOGGER.debug("Response: %s", data)
+                # Сервер облака может отдавать JSON с другим Content-Type.
+                data = await resp.json(content_type=None)
+                _LOGGER.debug("Response action=%s: %s", action, _redact(data))
                 return data
-        except (aiohttp.ClientError, asyncio.TimeoutError) as err:
+        except KotelApiError:
+            raise
+        except (aiohttp.ClientError, asyncio.TimeoutError, ValueError) as err:
             raise KotelApiError(f"Ошибка соединения: {err}") from err
 
     async def get_all_devices(self) -> list:
@@ -88,9 +120,7 @@ class KotelApiClient:
         return data if isinstance(data, dict) else {}
 
     async def get_sensor(self, device_id: str) -> dict:
-#        """Получить детальные данные датчика (action=get_big_dt).
-#        Аналог post_action(home_id, "get_big_dt", device_id, "", login, pass).
-#        """
+        """Получить детальные данные датчика (action=get_big_dt)."""
         payload = {
             "action": "get_big_dt",
             "id_name": device_id,
@@ -102,7 +132,9 @@ class KotelApiClient:
         data = await self._post(payload)
         return data if isinstance(data, dict) else {}
 
-    async def send_command(self, action: str, device_id: str, range_value: int | float = 0) -> dict:
+    async def send_command(
+        self, action: str, device_id: str, range_value: int | float = 0
+    ) -> dict:
         """Отправить команду управления (аналог post_action с range).
 
         Примеры action: "temp_w_ust", "temp_w_min", "nasos_t", "korect_",
@@ -127,9 +159,13 @@ class KotelApiClient:
     # ------------------------------------------------------------------
     # Климат-контроль (формат запросов как в climate.js / post_action)
     # ------------------------------------------------------------------
-    async def _climate_post(self, action: str, device_id: str,
-                            value: str | int | float = "",
-                            range_value: int | float = 0) -> dict | list:
+    async def _climate_post(
+        self,
+        action: str,
+        device_id: str,
+        value: str | int | float = "",
+        range_value: int | float = 0,
+    ) -> dict | list:
         """Запрос климат-контроля.
 
         В отличие от send_command, значение передаётся в поле `climat_war1`,
@@ -155,8 +191,9 @@ class KotelApiClient:
         """Выбрать режим: 0 — постоянная t°, 3 — 7/7, 4 — 5/2, 5 — 4/1/2."""
         await self._climate_post(ACTION_CLIMATE_MODE, device_id, int(mode))
 
-    async def set_climate_value(self, device_id: str, key: str,
-                                value: int | float) -> None:
+    async def set_climate_value(
+        self, device_id: str, key: str, value: int | float
+    ) -> None:
         """Записать значение: key = "temp_dt" или ключ расписания ("m3_P1_temp")."""
         await self._climate_post(ACTION_CLIMATE_RANGE, device_id, key, value)
 
@@ -172,6 +209,7 @@ class KotelApiClient:
             return []
         return [s for s in sensors if isinstance(s, dict) and s.get("id_name")]
 
-    async def close(self):
-        if self._session and not self._session.closed:
+    async def close(self) -> None:
+        """Закрыть сессию, если клиент создал её сам."""
+        if self._owns_session and self._session and not self._session.closed:
             await self._session.close()

@@ -1,24 +1,21 @@
-# Сервисы интеграции Kotel
+# Структура служб интеграции ReglerPro Controller.
+# Названия и описания служб и полей находятся в strings.json / translations/*.json
+# (стандарт Home Assistant с 2023.8). Здесь остаются только схема, селекторы,
+# значения по умолчанию и примеры.
+
 send_command:
-  name: Отправить команду
-  description: "Отправить произвольную команду на устройство (action из functions.js)"
   fields:
     device_id:
-      name: ID устройства
-      description: "id_name устройства"
       required: true
       selector:
         text:
     action:
-      name: Действие
-      description: "Например: temp_w_ust, vent_max, start__, stop___"
       required: true
       selector:
         text:
     value:
-      name: Значение
-      description: "Числовое значение для range"
       required: false
+      default: 0
       selector:
         number:
           min: -50
@@ -30,26 +27,16 @@ send_command:
 # Профили настроек (профили котла и климата хранятся и применяются отдельно)
 # ---------------------------------------------------------------------------
 save_profile:
-  name: Сохранить профиль
-  description: >-
-    Сохранить текущие значения как профиль. Профили котла и климата хранятся
-    в отдельных списках; тип определяется параметром kind или областями.
   target:
     device:
       integration: kotel
   fields:
     name:
-      name: Имя профиля
-      description: Имя, до 40 символов. У котла и климата имена могут совпадать.
       required: true
       example: Расписание 7/7 — солнечные дни
       selector:
         text:
     kind:
-      name: Тип профиля
-      description: >-
-        boiler — настройки котла; climate — режим, цель и расписание климата.
-        Если не указан, определяется по областям (по умолчанию котёл).
       required: false
       selector:
         select:
@@ -57,10 +44,6 @@ save_profile:
             - { value: boiler, label: Котёл }
             - { value: climate, label: Климат }
     scopes:
-      name: Что сохранять
-      description: >-
-        Котёл: boiler. Климат: climate, schedule, climate_sensor
-        (по умолчанию climate и schedule).
       required: false
       selector:
         select:
@@ -71,45 +54,31 @@ save_profile:
             - { value: schedule, label: "Климат: расписание" }
             - { value: climate_sensor, label: "Климат: датчик" }
     note:
-      name: Заметка
       required: false
       selector:
         text:
     overwrite:
-      name: Заменить существующий
-      description: Если профиль с таким именем есть, обновить его.
       required: false
       default: false
       selector:
         boolean:
     all_schedules:
-      name: Сохранить все наборы расписания
-      description: >-
-        По умолчанию в профиль климата попадает расписание только активного
-        режима (7/7, 5/2 или 4/1/2).
       required: false
       default: false
       selector:
         boolean:
 
 apply_profile:
-  name: Применить профиль
-  description: >-
-    Записать значения профиля в контроллер (только изменившиеся параметры).
-    Профили котла и климата применяются независимо.
   target:
     device:
       integration: kotel
   fields:
     name:
-      name: Имя профиля
       required: true
       example: Отпуск
       selector:
         text:
     kind:
-      name: Тип профиля
-      description: Нужен, только если имя есть и у котла, и у климата.
       required: false
       selector:
         select:
@@ -117,8 +86,6 @@ apply_profile:
             - { value: boiler, label: Котёл }
             - { value: climate, label: Климат }
     scopes:
-      name: Что применять
-      description: По умолчанию все области профиля.
       required: false
       selector:
         select:
@@ -129,38 +96,27 @@ apply_profile:
             - { value: schedule, label: "Климат: расписание" }
             - { value: climate_sensor, label: "Климат: датчик" }
     dry_run:
-      name: Только показать изменения
-      description: Ничего не записывать, вернуть список изменений.
       required: false
       default: false
       selector:
         boolean:
     force:
-      name: Игнорировать статус «не в сети»
       required: false
       default: false
       selector:
         boolean:
     verify:
-      name: Проверить результат
-      description: Дождаться подтверждения значений от контроллера.
       required: false
       default: true
       selector:
         boolean:
 
 undo_apply:
-  name: Отменить применение
-  description: >-
-    Вернуть значения, которые были до последнего применения профиля
-    выбранного типа.
   target:
     device:
       integration: kotel
   fields:
     kind:
-      name: Тип профиля
-      description: По умолчанию котёл.
       required: false
       default: boiler
       selector:
@@ -169,32 +125,26 @@ undo_apply:
             - { value: boiler, label: Котёл }
             - { value: climate, label: Климат }
     force:
-      name: Игнорировать статус «не в сети»
       required: false
       default: false
       selector:
         boolean:
     verify:
-      name: Проверить результат
       required: false
       default: true
       selector:
         boolean:
 
 delete_profile:
-  name: Удалить профиль
   target:
     device:
       integration: kotel
   fields:
     name:
-      name: Имя профиля
       required: true
       selector:
         text:
     kind:
-      name: Тип профиля
-      description: Нужен, только если имя есть и у котла, и у климата.
       required: false
       selector:
         select:
@@ -203,24 +153,19 @@ delete_profile:
             - { value: climate, label: Климат }
 
 rename_profile:
-  name: Переименовать профиль
   target:
     device:
       integration: kotel
   fields:
     name:
-      name: Текущее имя
       required: true
       selector:
         text:
     new_name:
-      name: Новое имя
       required: true
       selector:
         text:
     kind:
-      name: Тип профиля
-      description: Нужен, только если имя есть и у котла, и у климата.
       required: false
       selector:
         select:
@@ -229,33 +174,21 @@ rename_profile:
             - { value: climate, label: Климат }
 
 list_profiles:
-  name: Список профилей
-  description: >-
-    Вернуть сохранённые профили (ответ службы). Профили котла — в корне и в
-    блоке boiler, профили климата — в блоке climate.
   target:
     device:
       integration: kotel
 
 export_profiles:
-  name: Экспорт профилей в файл
-  description: >-
-    Записать выбранные профили в JSON-файл /config/kotel_profiles/.
-    Без фильтров экспортируются все профили (котёл и климат).
   target:
     device:
       integration: kotel
   fields:
     profiles:
-      name: Профили
-      description: Имена профилей (по умолчанию все).
       required: false
       selector:
         text:
           multiple: true
     kind:
-      name: Тип профилей
-      description: Экспортировать только котёл или только климат.
       required: false
       selector:
         select:
@@ -263,39 +196,27 @@ export_profiles:
             - { value: boiler, label: Котёл }
             - { value: climate, label: Климат }
     to_www:
-      name: Положить в www для скачивания
-      description: >-
-        Файл будет доступен по адресу /local/kotel_profiles/... БЕЗ авторизации.
       required: false
       default: false
       selector:
         boolean:
 
 import_profiles:
-  name: Импорт профилей из файла
-  description: >-
-    Загрузить профили из файла в каталоге /config/kotel_profiles/. Файлы
-    версии 1.3.0 делятся на профили котла и климата автоматически.
   target:
     device:
       integration: kotel
   fields:
     file:
-      name: Имя файла
       required: true
       example: kotel_profiles_20261020_101500.json
       selector:
         text:
     profiles:
-      name: Профили
-      description: Какие профили импортировать (по умолчанию все из файла).
       required: false
       selector:
         text:
           multiple: true
     kind:
-      name: Тип профилей
-      description: Импортировать только котёл или только климат.
       required: false
       selector:
         select:
@@ -303,8 +224,6 @@ import_profiles:
             - { value: boiler, label: Котёл }
             - { value: climate, label: Климат }
     on_conflict:
-      name: Если имя занято
-      description: Имена сравниваются внутри своего типа профилей.
       required: false
       default: rename
       selector:

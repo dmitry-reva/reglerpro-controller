@@ -11,17 +11,19 @@
 #      Настройки → Устройства и службы → Kotel → устройство → сущность → ⚙.
 #      В редакторе работает поиск с заменой: Ctrl+H.
 #
-#  ID СУЩНОСТЕЙ (ожидаемые; у вас они могут отличаться)
-#   sensor.kotel_temperatura_vody               +Температура воды sensor.kotel_otopleniia_h13_temperatura_vody
-#   sensor.kotel_ustavka_temperatury_max/_min   Уставки температуры number.kotel_otopleniia_h13_ustavka_temperatury_max number.kotel_otopleniia_h13_ustavka_temperatury_min
-#   sensor.kotel_sostoianie                     Состояние (Работает/Остановлен/…) sensor.kotel_otopleniia_h13_sostoianie
-#   sensor.kotel_klimat_kontrol                 Климат-контроль (Нагрев/Охлаждение) sensor.kotel_otopleniia_kontroller_klimat_kontrolч  
-#   sensor.kotel_status_podkliucheniia          +online / offline sensor.kotel_otopleniia_h13_status_podkliucheniia
-#   sensor.kotel_ventiliator_vkliuchen          +vent_on (0/1) sensor.kotel_otopleniia_kontroller_ventiliator_vkliuchen
-#   sensor.kotel_klimat_vkliuchen               Климат: включён (0/1) sensor.kotel_otopleniia_kontroller_klimat_vkliuchen
-#   sensor.kotel_trevoga_po_vode …              аварии и ошибки («нет» = норма) sensor.kotel_otopleniia_kontroller_trevoga_po_vode
-#   switch.kotel_start_stop                     +Старт/Стоп switch.kotel_otopleniia_h13_start_stop
-#   number.kotel_*                              настройки (ползунки)
+#  ID СУЩНОСТЕЙ (пример; у вас могут отличаться)
+#   sensor.kotel_kontroller_temperatura_vody          температура воды
+#   sensor.kotel_kontroller_ustavka_temperatury_max   уставка max
+#   sensor.kotel_kontroller_ustavka_temperatury_min   уставка min
+#   sensor.kotel_kontroller_sostoianie_raboty                состояние работы
+#   sensor.kotel_kontroller_klimat_kontrol            климат: нагрев/охлаждение
+#   sensor.kotel_kontroller_status_podkliucheniia     online / offline
+#   sensor.kotel_kontroller_ventiliator_vkliuchen     вентилятор: да / нет
+#   sensor.kotel_kontroller_klimat_vkliuchen          климат включён: да / нет
+#   sensor.kotel_kontroller_trevoga_po_vode           аварии и ошибки: да / нет
+#   switch.kotel_kontroller_start_stop                старт/стоп
+#   number.kotel_kontroller_*                         настройки (ползунки)
+#  Замените префикс kotel_kontroller на свой: карточка устройства → сущность → ⚙.
 # =============================================================================
 title: Котёл
 views:
@@ -242,7 +244,7 @@ views:
           - type: conditional
             conditions:
               - condition: state
-                entity: sensor.kotel_kontroller_sostoianie
+                entity: sensor.kotel_kontroller_sostoianie_raboty
                 state: Розжиг/Угасание
             elements:
               - type: icon
@@ -294,10 +296,10 @@ views:
                 entity: sensor.kotel_kontroller_avariia_shneka
                 state: "да"
               - condition: state
-                entity: sensor.kotel_kontroller_oshibka_datchika_t_vody
+                entity: sensor.kotel_kontroller_oshibka_datchika_temperatury_vody
                 state: "да"
               - condition: state
-                entity: sensor.kotel_kontroller_oshibka_datchika_t_shneka
+                entity: sensor.kotel_kontroller_oshibka_datchika_temperatury_shneka
                 state: "да"
               - condition: state
                 entity: sensor.kotel_kontroller_oshibka_simistora
@@ -309,8 +311,8 @@ views:
 
             Тревога по воде: **{{ states('sensor.kotel_kontroller_trevoga_po_vode') }}**  ·
             Авария шнека: **{{ states('sensor.kotel_kontroller_avariia_shneka') }}**  ·
-            Датчик воды: **{{ states('sensor.kotel_kontroller_oshibka_datchika_t_vody') }}**  ·
-            Датчик шнека: **{{ states('sensor.kotel_kontroller_oshibka_datchika_t_shneka') }}**  ·
+            Датчик воды: **{{ states('sensor.kotel_kontroller_oshibka_datchika_temperatury_vody') }}**  ·
+            Датчик шнека: **{{ states('sensor.kotel_kontroller_oshibka_datchika_temperatury_shneka') }}**  ·
             Симистор: **{{ states('sensor.kotel_kontroller_oshibka_simistora') }}**
 
       # ---- 2+. Термостат (климат-контроль) ----------------------------------
@@ -330,7 +332,7 @@ views:
               - Расписание 5/2
               - Расписание 4/1/2
 
-      # ---- 3. Температура воды: стрелочный индикатор ------------------------
+      # ---- 3. Температура помещения: стрелочный индикатор -------------------
       - type: gauge
         entity: sensor.kotel_kontroller_klimat_temperatura_datchika
         name: Датчик климата
@@ -353,7 +355,7 @@ views:
         square: false
         cards:
           - type: tile
-            entity: sensor.kotel_kontroller_sostoianie
+            entity: sensor.kotel_kontroller_sostoianie_raboty
             name: Состояние
             vertical: true
           - type: tile

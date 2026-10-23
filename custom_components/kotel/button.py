@@ -1,31 +1,31 @@
-"""Кнопки профилей: сохранить, обновить, применить, отменить — отдельно для котла и климата."""
+"""Кнопки профилей: сохранить, обновить, применить, отменить — для котла и климата."""
 
-from homeassistant.components.button import ButtonEntity  # pyright: ignore[reportMissingImports]
-from homeassistant.exceptions import (  # pyright: ignore[reportMissingImports]
-    HomeAssistantError,
-    ServiceValidationError,
-)
+from __future__ import annotations
+
+from homeassistant.components.button import ButtonEntity
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 
 from .const import DEVICE_TYPE_CONTR, DOMAIN
 from .coordinator import KotelCoordinator
+from .entity import KotelEntity
 from .profiles import ALL_KINDS, KIND_BOILER, KIND_CLIMATE
 
-# тип профиля -> действие -> (название, иконка)
+# тип профиля -> действие -> (translation_key, иконка)
 BUTTONS = {
     KIND_BOILER: {
-        "save": ("Сохранить профиль котла", "mdi:content-save-plus"),
-        "update": ("Обновить профиль котла", "mdi:content-save-edit"),
-        "apply": ("Применить профиль котла", "mdi:play-circle"),
-        "undo": ("Отменить применение (котёл)", "mdi:undo-variant"),
+        "save": ("boiler_profile_save", "mdi:content-save-plus"),
+        "update": ("boiler_profile_update", "mdi:content-save-edit"),
+        "apply": ("boiler_profile_apply", "mdi:play-circle"),
+        "undo": ("boiler_profile_undo", "mdi:undo-variant"),
     },
     KIND_CLIMATE: {
-        "save": ("Сохранить профиль климата", "mdi:content-save-plus-outline"),
-        "update": ("Обновить профиль климата", "mdi:content-save-edit-outline"),
-        "apply": ("Применить профиль климата", "mdi:play-circle-outline"),
-        "undo": ("Отменить применение (климат)", "mdi:undo"),
+        "save": ("climate_profile_save", "mdi:content-save-plus-outline"),
+        "update": ("climate_profile_update", "mdi:content-save-edit-outline"),
+        "apply": ("climate_profile_apply", "mdi:play-circle-outline"),
+        "undo": ("climate_profile_undo", "mdi:undo"),
     },
 }
-# Для котла unique_id прежние (kotel_<id>_profile_<действие>), для климата — с префиксом climate_
+# Для котла суффиксы прежние (profile_<действие>), для климата — climate_profile_<действие>
 _UID_PREFIX = {KIND_BOILER: "profile", KIND_CLIMATE: "climate_profile"}
 
 
@@ -46,43 +46,32 @@ def _summary(report: dict) -> str:
             f"не подтверждено {len(report['unverified'])}, пропущено {len(report['skipped'])}")
 
 
-class KotelProfileButton(ButtonEntity):
+class KotelProfileButton(KotelEntity, ButtonEntity):
     """Кнопка управления профилями котла или климата выбранного контроллера."""
-
-    _attr_should_poll = False
 
     def __init__(self, coordinator: KotelCoordinator, dev_id: str, manager,
                  kind: str, action: str):
-        self._coordinator = coordinator
-        self._dev_id = dev_id
+        translation_key, icon = BUTTONS[kind][action]
+        super().__init__(
+            coordinator, dev_id,
+            unique_suffix=f"{_UID_PREFIX[kind]}_{action}",
+            translation_key=translation_key,
+        )
         self._manager = manager
         self._kind = kind
         self._action = action
-        name, icon = BUTTONS[kind][action]
-        self._attr_name = name
         self._attr_icon = icon
-        self._attr_unique_id = f"kotel_{dev_id}_{_UID_PREFIX[kind]}_{action}"
 
     @property
     def available(self) -> bool:
-        if not self._coordinator.last_update_success:
+        if not self.coordinator.last_update_success:
             return False
         if self._action == "undo":               # откат доступен только после применения
             return self._manager.has_undo(self._dev_id, self._kind)
         return True
 
-    @property
-    def device_info(self):
-        data = self._coordinator.data.get(self._dev_id, {})
-        return {
-            "identifiers": {(DOMAIN, self._dev_id)},
-            "name": data.get("name", self._dev_id),
-            "manufacturer": "Kotel",
-            "model": "Контроллер",
-        }
-
     async def async_added_to_hass(self):
-        self.async_on_remove(self._coordinator.async_add_listener(self.async_write_ha_state))
+        await super().async_added_to_hass()
         self.async_on_remove(self._manager.async_add_listener(self.async_write_ha_state))
 
     def _selected(self) -> str:

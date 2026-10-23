@@ -7,6 +7,7 @@ API_PATH = "/php/taptop.php"
 CONF_LOGIN = "login"
 CONF_PASSWORD = "password"
 CONF_HOME_ID = "home_id"
+CONF_SCAN_INTERVAL = "scan_interval"
 
 # Типы устройств
 DEVICE_TYPE_CONTR = "contr"

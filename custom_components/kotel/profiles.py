@@ -105,7 +105,7 @@ SCOPE_LABELS = {
 # допустимые значения: ключ -> (минимум, максимум, шаг)
 BOILER_LIMITS: dict[str, tuple[float, float, float]] = {
     key: (min_val, max_val, step)
-    for key, _name, min_val, max_val, step, _unit, _cat in NUMBER_PARAMS
+    for key, _translation_key, min_val, max_val, step, _unit, _cat in NUMBER_PARAMS
 }
 VALID_MODES = (TSTAT_MODE_CONST, *SCHEDULE_MODES)
 _TIME_KEY_RE = re.compile(r"^(m[345])_P([1-4])_(?:(d\d)_)?time$")

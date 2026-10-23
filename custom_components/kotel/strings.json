@@ -14,13 +14,14 @@
     },
     "error": {
       "cannot_connect": "Cannot connect to the server",
-      "no_home_id": "No devices found. Specify the home ID"
+      "no_home_id": "No devices found. Specify the home ID",
+      "no_devices": "No devices found for this home ID"
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Kotel options",
+        "title": "ReglerPro options",
         "menu_options": {
           "settings": "Polling and settings",
           "export": "Export profiles to a file",
@@ -76,6 +77,591 @@
       "export_done": "Exported profiles: {count}. File: {path}. Download link: {url}",
       "import_done": "Imported profiles: {count}, skipped: {skipped}. Renamed: {renamed}",
       "delete_done": "Deleted profiles: {count}."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "water_temperature": {
+        "name": "Water temperature"
+      },
+      "target_temperature_max": {
+        "name": "Target temperature (max)"
+      },
+      "target_temperature_min": {
+        "name": "Target temperature (min)"
+      },
+      "auger_temperature": {
+        "name": "Auger temperature"
+      },
+      "operating_state": {
+        "name": "Operating state",
+        "state": {
+          "Остановлен": "Stopped",
+          "Работает": "Running",
+          "Розжиг/Угасание": "Ignition/burnout",
+          "Неизвестно": "Unknown"
+        }
+      },
+      "climate_control": {
+        "name": "Climate control",
+        "state": {
+          "Нагрев": "Heating",
+          "Охлаждение": "Cooling",
+          "Выключен": "Off"
+        }
+      },
+      "connection_status": {
+        "name": "Connection status",
+        "state": {
+          "online": "Online",
+          "offline": "Offline"
+        }
+      },
+      "active_boiler_profile": {
+        "name": "Active boiler profile"
+      },
+      "active_climate_profile": {
+        "name": "Active climate profile"
+      },
+      "firmware_version": {
+        "name": "Firmware version"
+      },
+      "fan_on": {
+        "name": "Fan on",
+        "state": {
+          "нет": "No",
+          "да": "Yes"
+        }
+      },
+      "error_water_sensor": {
+        "name": "Water temperature sensor error",
+        "state": {
+          "нет": "No",
+          "да": "Yes"
+        }
+      },
+      "error_auger_sensor": {
+        "name": "Auger temperature sensor error",
+        "state": {
+          "нет": "No",
+          "да": "Yes"
+        }
+      },
+      "auger_failure": {
+        "name": "Auger failure",
+        "state": {
+          "нет": "No",
+          "да": "Yes"
+        }
+      },
+      "water_alarm": {
+        "name": "Water alarm",
+        "state": {
+          "нет": "No",
+          "да": "Yes"
+        }
+      },
+      "triac_error": {
+        "name": "Triac error",
+        "state": {
+          "нет": "No",
+          "да": "Yes"
+        }
+      },
+      "auger_interval_heating": {
+        "name": "Auger: interval (heating)"
+      },
+      "auger_interval_maintenance": {
+        "name": "Auger: interval (maintenance)"
+      },
+      "auger_run_heating": {
+        "name": "Auger: run time (heating)"
+      },
+      "auger_run_maintenance": {
+        "name": "Auger: run time (maintenance)"
+      },
+      "auger_auto_reverse": {
+        "name": "Auger: auto-reverse",
+        "state": {
+          "нет": "No",
+          "да": "Yes"
+        }
+      },
+      "auger_reverse_interval": {
+        "name": "Auger: auto-reverse interval"
+      },
+      "auger_reversing": {
+        "name": "Auger: reversing now",
+        "state": {
+          "нет": "No",
+          "да": "Yes"
+        }
+      },
+      "climate_maximum": {
+        "name": "Climate: maximum"
+      },
+      "climate_minimum": {
+        "name": "Climate: minimum"
+      },
+      "external_sensor_used": {
+        "name": "External sensor: in use",
+        "state": {
+          "нет": "No",
+          "да": "Yes"
+        }
+      },
+      "external_sensor_temperature": {
+        "name": "External sensor: temperature"
+      },
+      "climate_enabled": {
+        "name": "Climate: enabled",
+        "state": {
+          "нет": "No",
+          "да": "Yes"
+        }
+      },
+      "climate_sensor_selected": {
+        "name": "Climate: sensor selected",
+        "state": {
+          "нет": "No",
+          "да": "Yes"
+        }
+      },
+      "climate_sensor_name": {
+        "name": "Climate: sensor"
+      },
+      "climate_sensor_temperature": {
+        "name": "Climate: sensor temperature"
+      },
+      "climate_target_temperature": {
+        "name": "Climate: target temperature"
+      },
+      "climate_period": {
+        "name": "Climate: period"
+      },
+      "diagnostics": {
+        "name": "Parameter diagnostics"
+      },
+      "temperature": {
+        "name": "Temperature"
+      }
+    },
+    "number": {
+      "boiler_target_temperature_max": {
+        "name": "Target temperature (max)"
+      },
+      "boiler_target_temperature_min": {
+        "name": "Target temperature (min)"
+      },
+      "pump_temperature": {
+        "name": "Pump temperature"
+      },
+      "temperature_correction": {
+        "name": "Temperature correction"
+      },
+      "purge_time": {
+        "name": "Purge time"
+      },
+      "purge_interval": {
+        "name": "Purge interval"
+      },
+      "fan_min": {
+        "name": "Fan (min)"
+      },
+      "fan_max": {
+        "name": "Fan (max)"
+      },
+      "burnout_time": {
+        "name": "Burnout time"
+      },
+      "auger_interval_heating": {
+        "name": "Auger: interval (heating)"
+      },
+      "auger_interval_maintenance": {
+        "name": "Auger: interval (maintenance)"
+      },
+      "schedule_m3_p1_time": {
+        "name": "Schedule 7/7 (Mon–Sun): P1 start"
+      },
+      "schedule_m3_p1_temp": {
+        "name": "Schedule 7/7 (Mon–Sun): P1 temperature"
+      },
+      "schedule_m3_p2_time": {
+        "name": "Schedule 7/7 (Mon–Sun): P2 start"
+      },
+      "schedule_m3_p2_temp": {
+        "name": "Schedule 7/7 (Mon–Sun): P2 temperature"
+      },
+      "schedule_m3_p3_time": {
+        "name": "Schedule 7/7 (Mon–Sun): P3 start"
+      },
+      "schedule_m3_p3_temp": {
+        "name": "Schedule 7/7 (Mon–Sun): P3 temperature"
+      },
+      "schedule_m3_p4_time": {
+        "name": "Schedule 7/7 (Mon–Sun): P4 start"
+      },
+      "schedule_m3_p4_temp": {
+        "name": "Schedule 7/7 (Mon–Sun): P4 temperature"
+      },
+      "schedule_m4_p1_d5_time": {
+        "name": "Schedule 5/2 (Mon–Fri): P1 start"
+      },
+      "schedule_m4_p1_d5_temp": {
+        "name": "Schedule 5/2 (Mon–Fri): P1 temperature"
+      },
+      "schedule_m4_p2_d5_time": {
+        "name": "Schedule 5/2 (Mon–Fri): P2 start"
+      },
+      "schedule_m4_p2_d5_temp": {
+        "name": "Schedule 5/2 (Mon–Fri): P2 temperature"
+      },
+      "schedule_m4_p3_d5_time": {
+        "name": "Schedule 5/2 (Mon–Fri): P3 start"
+      },
+      "schedule_m4_p3_d5_temp": {
+        "name": "Schedule 5/2 (Mon–Fri): P3 temperature"
+      },
+      "schedule_m4_p4_d5_time": {
+        "name": "Schedule 5/2 (Mon–Fri): P4 start"
+      },
+      "schedule_m4_p4_d5_temp": {
+        "name": "Schedule 5/2 (Mon–Fri): P4 temperature"
+      },
+      "schedule_m4_p1_d2_time": {
+        "name": "Schedule 5/2 (Sat–Sun): P1 start"
+      },
+      "schedule_m4_p1_d2_temp": {
+        "name": "Schedule 5/2 (Sat–Sun): P1 temperature"
+      },
+      "schedule_m4_p2_d2_time": {
+        "name": "Schedule 5/2 (Sat–Sun): P2 start"
+      },
+      "schedule_m4_p2_d2_temp": {
+        "name": "Schedule 5/2 (Sat–Sun): P2 temperature"
+      },
+      "schedule_m4_p3_d2_time": {
+        "name": "Schedule 5/2 (Sat–Sun): P3 start"
+      },
+      "schedule_m4_p3_d2_temp": {
+        "name": "Schedule 5/2 (Sat–Sun): P3 temperature"
+      },
+      "schedule_m4_p4_d2_time": {
+        "name": "Schedule 5/2 (Sat–Sun): P4 start"
+      },
+      "schedule_m4_p4_d2_temp": {
+        "name": "Schedule 5/2 (Sat–Sun): P4 temperature"
+      },
+      "schedule_m5_p1_d4_time": {
+        "name": "Schedule 4/1/2 (Mon–Thu): P1 start"
+      },
+      "schedule_m5_p1_d4_temp": {
+        "name": "Schedule 4/1/2 (Mon–Thu): P1 temperature"
+      },
+      "schedule_m5_p2_d4_time": {
+        "name": "Schedule 4/1/2 (Mon–Thu): P2 start"
+      },
+      "schedule_m5_p2_d4_temp": {
+        "name": "Schedule 4/1/2 (Mon–Thu): P2 temperature"
+      },
+      "schedule_m5_p3_d4_time": {
+        "name": "Schedule 4/1/2 (Mon–Thu): P3 start"
+      },
+      "schedule_m5_p3_d4_temp": {
+        "name": "Schedule 4/1/2 (Mon–Thu): P3 temperature"
+      },
+      "schedule_m5_p4_d4_time": {
+        "name": "Schedule 4/1/2 (Mon–Thu): P4 start"
+      },
+      "schedule_m5_p4_d4_temp": {
+        "name": "Schedule 4/1/2 (Mon–Thu): P4 temperature"
+      },
+      "schedule_m5_p1_d1_time": {
+        "name": "Schedule 4/1/2 (Fri): P1 start"
+      },
+      "schedule_m5_p1_d1_temp": {
+        "name": "Schedule 4/1/2 (Fri): P1 temperature"
+      },
+      "schedule_m5_p2_d1_time": {
+        "name": "Schedule 4/1/2 (Fri): P2 start"
+      },
+      "schedule_m5_p2_d1_temp": {
+        "name": "Schedule 4/1/2 (Fri): P2 temperature"
+      },
+      "schedule_m5_p3_d1_time": {
+        "name": "Schedule 4/1/2 (Fri): P3 start"
+      },
+      "schedule_m5_p3_d1_temp": {
+        "name": "Schedule 4/1/2 (Fri): P3 temperature"
+      },
+      "schedule_m5_p4_d1_time": {
+        "name": "Schedule 4/1/2 (Fri): P4 start"
+      },
+      "schedule_m5_p4_d1_temp": {
+        "name": "Schedule 4/1/2 (Fri): P4 temperature"
+      },
+      "schedule_m5_p1_d2_time": {
+        "name": "Schedule 4/1/2 (Sat–Sun): P1 start"
+      },
+      "schedule_m5_p1_d2_temp": {
+        "name": "Schedule 4/1/2 (Sat–Sun): P1 temperature"
+      },
+      "schedule_m5_p2_d2_time": {
+        "name": "Schedule 4/1/2 (Sat–Sun): P2 start"
+      },
+      "schedule_m5_p2_d2_temp": {
+        "name": "Schedule 4/1/2 (Sat–Sun): P2 temperature"
+      },
+      "schedule_m5_p3_d2_time": {
+        "name": "Schedule 4/1/2 (Sat–Sun): P3 start"
+      },
+      "schedule_m5_p3_d2_temp": {
+        "name": "Schedule 4/1/2 (Sat–Sun): P3 temperature"
+      },
+      "schedule_m5_p4_d2_time": {
+        "name": "Schedule 4/1/2 (Sat–Sun): P4 start"
+      },
+      "schedule_m5_p4_d2_temp": {
+        "name": "Schedule 4/1/2 (Sat–Sun): P4 temperature"
+      }
+    },
+    "switch": {
+      "start_stop": {
+        "name": "Start/Stop"
+      }
+    },
+    "climate": {
+      "thermostat": {
+        "name": "Thermostat",
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "Расписание 7/7": "Schedule 7/7",
+              "Расписание 5/2": "Schedule 5/2",
+              "Расписание 4/1/2": "Schedule 4/1/2"
+            }
+          }
+        }
+      }
+    },
+    "select": {
+      "climate_sensor": {
+        "name": "Climate sensor"
+      },
+      "boiler_profile": {
+        "name": "Boiler profile"
+      },
+      "climate_profile": {
+        "name": "Climate profile"
+      }
+    },
+    "text": {
+      "boiler_profile_name": {
+        "name": "New boiler profile name"
+      },
+      "climate_profile_name": {
+        "name": "New climate profile name"
+      }
+    },
+    "button": {
+      "boiler_profile_save": {
+        "name": "Save boiler profile"
+      },
+      "boiler_profile_update": {
+        "name": "Update boiler profile"
+      },
+      "boiler_profile_apply": {
+        "name": "Apply boiler profile"
+      },
+      "boiler_profile_undo": {
+        "name": "Undo boiler profile"
+      },
+      "climate_profile_save": {
+        "name": "Save climate profile"
+      },
+      "climate_profile_update": {
+        "name": "Update climate profile"
+      },
+      "climate_profile_apply": {
+        "name": "Apply climate profile"
+      },
+      "climate_profile_undo": {
+        "name": "Undo climate profile"
+      }
+    }
+  },
+  "services": {
+    "send_command": {
+      "name": "Send command",
+      "description": "Send an arbitrary command to the device (action from functions.js). Diagnostic use; handle with care.",
+      "fields": {
+        "device_id": {
+          "name": "Device ID",
+          "description": "Controller id_name"
+        },
+        "action": {
+          "name": "Action",
+          "description": "For example: temp_w_ust, vent_max, start__, stop___"
+        },
+        "value": {
+          "name": "Value",
+          "description": "Numeric value for the range field"
+        }
+      }
+    },
+    "save_profile": {
+      "name": "Save profile",
+      "description": "Save the current values as a profile. Boiler and climate profiles are kept in separate lists; the kind is inferred from scopes when omitted.",
+      "fields": {
+        "name": {
+          "name": "Profile name",
+          "description": "Up to 40 characters. Boiler and climate names may match."
+        },
+        "kind": {
+          "name": "Profile kind",
+          "description": "boiler — boiler settings; climate — climate mode, target and schedule. Inferred from scopes when omitted (boiler by default)."
+        },
+        "scopes": {
+          "name": "What to save",
+          "description": "Boiler: boiler. Climate: climate, schedule, climate_sensor (climate and schedule by default)."
+        },
+        "note": {
+          "name": "Note",
+          "description": "Free text, up to 200 characters."
+        },
+        "overwrite": {
+          "name": "Overwrite existing",
+          "description": "Update the profile if the name already exists."
+        },
+        "all_schedules": {
+          "name": "Save all schedule sets",
+          "description": "By default only the active schedule (7/7, 5/2 or 4/1/2) is saved."
+        }
+      }
+    },
+    "apply_profile": {
+      "name": "Apply profile",
+      "description": "Write the profile values to the controller (changed values only). Boiler and climate profiles are applied independently.",
+      "fields": {
+        "name": {
+          "name": "Profile name",
+          "description": "Name of a saved profile."
+        },
+        "kind": {
+          "name": "Profile kind",
+          "description": "Needed only if the name exists in both lists."
+        },
+        "scopes": {
+          "name": "What to apply",
+          "description": "All profile scopes by default."
+        },
+        "dry_run": {
+          "name": "Show changes only",
+          "description": "Do not write anything; return the change list."
+        },
+        "force": {
+          "name": "Ignore offline status",
+          "description": "Write even when the controller is offline."
+        },
+        "verify": {
+          "name": "Verify result",
+          "description": "Wait for the controller to confirm the values."
+        }
+      }
+    },
+    "undo_apply": {
+      "name": "Undo apply",
+      "description": "Restore the values from before the last profile application of the selected kind.",
+      "fields": {
+        "kind": {
+          "name": "Profile kind",
+          "description": "Boiler by default."
+        },
+        "force": {
+          "name": "Ignore offline status",
+          "description": "Write even when the controller is offline."
+        },
+        "verify": {
+          "name": "Verify result",
+          "description": "Wait for the controller to confirm the values."
+        }
+      }
+    },
+    "delete_profile": {
+      "name": "Delete profile",
+      "description": "Delete a saved profile. This cannot be undone.",
+      "fields": {
+        "name": {
+          "name": "Profile name",
+          "description": "Name of the profile to delete."
+        },
+        "kind": {
+          "name": "Profile kind",
+          "description": "Needed only if the name exists in both lists."
+        }
+      }
+    },
+    "rename_profile": {
+      "name": "Rename profile",
+      "description": "Rename a saved profile.",
+      "fields": {
+        "name": {
+          "name": "Current name",
+          "description": "Existing profile name."
+        },
+        "new_name": {
+          "name": "New name",
+          "description": "New name, up to 40 characters."
+        },
+        "kind": {
+          "name": "Profile kind",
+          "description": "Needed only if the name exists in both lists."
+        }
+      }
+    },
+    "list_profiles": {
+      "name": "List profiles",
+      "description": "Return saved profiles as a service response. Boiler profiles are at the top level and in the boiler block; climate profiles are in the climate block."
+    },
+    "export_profiles": {
+      "name": "Export profiles to a file",
+      "description": "Write the selected profiles to a JSON file in /config/kotel_profiles/. Without filters all profiles (boiler and climate) are exported.",
+      "fields": {
+        "profiles": {
+          "name": "Profiles",
+          "description": "Profile names (all by default)."
+        },
+        "kind": {
+          "name": "Profile kind",
+          "description": "Export only boiler or only climate profiles."
+        },
+        "to_www": {
+          "name": "Put into www for download",
+          "description": "The file will be available at /local/kotel_profiles/... WITHOUT authentication."
+        }
+      }
+    },
+    "import_profiles": {
+      "name": "Import profiles from a file",
+      "description": "Load profiles from a file in /config/kotel_profiles/. Version 1.3.0 files are split into boiler and climate profiles automatically.",
+      "fields": {
+        "file": {
+          "name": "File name",
+          "description": "JSON file name in the kotel_profiles folder."
+        },
+        "profiles": {
+          "name": "Profiles",
+          "description": "Which profiles to import (all by default)."
+        },
+        "kind": {
+          "name": "Profile kind",
+          "description": "Import only boiler or only climate profiles."
+        },
+        "on_conflict": {
+          "name": "If the name is taken",
+          "description": "Names are compared within the same profile kind."
+        }
+      }
     }
   }
 }

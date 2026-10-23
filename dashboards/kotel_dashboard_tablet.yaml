@@ -1,0 +1,217 @@
+# =============================================================================
+#  Дашборд «Котёл» для настенного планшета (kiosk / tablet)
+#
+#  Идея: крупная панель контроллера, минимум мелких элементов, большие зоны
+#  нажатия. HACS не требуется. Для полноэкранного режима можно поставить
+#  kiosk-mode (HACS) и browser_mod, но это не обязательно.
+#
+#  ПОДКЛЮЧЕНИЕ
+#   1. Скопируйте www/kotel/controller.png в /config/www/kotel/.
+#   2. Создайте панель → Raw configuration editor → вставьте файл.
+#   3. Замените префикс kotel_kontroller на свой (Ctrl+H).
+#   4. Для планшета: HA Companion → «Always show sidebar» выкл.,
+#      масштаб 100–125 %, экран не гаснет.
+# =============================================================================
+title: Котёл — панель
+views:
+  - title: Панель
+    path: panel
+    icon: mdi:tablet-dashboard
+    cards:
+      - type: markdown
+        content: >
+          # {{ now().strftime('%H:%M') }}
+
+          {{ now().strftime('%d.%m.%Y') }} · {{ states('sensor.kotel_kontroller_sostoianie_raboty') }}
+
+      - type: picture-elements
+        image: /local/kotel/controller.png
+        elements:
+          # Температура воды — главное число
+          - type: state-label
+            entity: sensor.kotel_kontroller_temperatura_vody
+            style:
+              left: 55.9%
+              top: 33.2%
+              transform: translate(-50%, -50%)
+              font-size: 64px
+              font-weight: 700
+              font-family: Arial, Helvetica, sans-serif
+              color: "#ff3b30"
+              text-shadow: 0 0 12px rgba(255, 59, 48, 0.9)
+              pointer-events: none
+
+          # Температура помещения — второе число
+          - type: state-label
+            entity: sensor.kotel_kontroller_klimat_temperatura_datchika
+            style:
+              left: 55.9%
+              top: 47%
+              transform: translate(-50%, -50%)
+              font-size: 30px
+              font-weight: 600
+              font-family: Arial, Helvetica, sans-serif
+              color: "#4fc3f7"
+              pointer-events: none
+
+          # Подпись «вода»
+          - type: state-label
+            entity: sensor.kotel_kontroller_temperatura_vody
+            attribute: friendly_name
+            style:
+              left: 55.9%
+              top: 22%
+              transform: translate(-50%, -50%)
+              font-size: 16px
+              color: "#bbbbbb"
+              pointer-events: none
+
+          # Старт/стоп — крупная кнопка
+          - type: state-icon
+            entity: switch.kotel_kontroller_start_stop
+            icon: mdi:power
+            tap_action:
+              action: toggle
+              confirmation:
+                text: Переключить котёл?
+            style:
+              left: 82.9%
+              top: 26.7%
+              transform: translate(-50%, -50%)
+              "--mdc-icon-size": 56px
+              opacity: 0.85
+
+          # Индикатор связи
+          - type: conditional
+            conditions:
+              - condition: state
+                entity: sensor.kotel_kontroller_status_podkliucheniia
+                state: online
+            elements:
+              - type: icon
+                icon: mdi:circle
+                style:
+                  left: 52%
+                  top: 83.6%
+                  transform: translate(-50%, -50%)
+                  color: "#00e676"
+                  "--mdc-icon-size": 20px
+
+          # Индикатор розжига/угасания
+          - type: conditional
+            conditions:
+              - condition: state
+                entity: sensor.kotel_kontroller_sostoianie_raboty
+                state: Розжиг/Угасание
+            elements:
+              - type: icon
+                icon: mdi:circle
+                style:
+                  left: 52%
+                  top: 76%
+                  transform: translate(-50%, -50%)
+                  color: "#ffab00"
+                  "--mdc-icon-size": 20px
+
+          # Индикатор климата
+          - type: conditional
+            conditions:
+              - condition: state
+                entity: sensor.kotel_kontroller_klimat_kontrol
+                state: Нагрев
+            elements:
+              - type: icon
+                icon: mdi:fire
+                style:
+                  left: 76%
+                  top: 47%
+                  transform: translate(-50%, -50%)
+                  color: "#ff7043"
+                  "--mdc-icon-size": 28px
+
+      # --- Крупные плитки -----------------------------------------------------
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: tile
+            entity: sensor.kotel_kontroller_ustavka_temperatury_max
+            name: Уставка макс.
+            icon: mdi:thermometer-high
+            vertical: true
+            tap_action:
+              action: more-info
+          - type: tile
+            entity: sensor.kotel_kontroller_klimat_temperatura_datchika
+            name: В помещении
+            icon: mdi:home-thermometer-outline
+            vertical: true
+            tap_action:
+              action: more-info
+
+      # --- Термостат ----------------------------------------------------------
+      - type: thermostat
+        entity: climate.kotel_kontroller_termostat
+        name: Климат-контроль
+        features:
+          - type: climate-hvac-modes
+            hvac_modes: ["off", heat, auto]
+          - type: climate-preset-modes
+            style: dropdown
+            preset_modes:
+              - Расписание 7/7
+              - Расписание 5/2
+              - Расписание 4/1/2
+
+  - title: Настройки
+    path: settings
+    icon: mdi:cog
+    cards:
+      - type: entities
+        title: Быстрые настройки
+        show_header_toggle: false
+        entities:
+          - entity: switch.kotel_kontroller_start_stop
+            name: Старт / Стоп
+          - entity: number.kotel_kontroller_ustavka_temperatury_max
+          - entity: number.kotel_kontroller_ustavka_temperatury_min
+          - entity: number.kotel_kontroller_korrektsiia_temperatury
+          - entity: number.kotel_kontroller_ventiliator_max
+          - entity: number.kotel_kontroller_ventiliator_min
+
+      - type: entities
+        title: Профили котла
+        show_header_toggle: false
+        entities:
+          - entity: sensor.kotel_kontroller_aktivnyi_profil
+          - entity: select.kotel_kontroller_profil
+          - entity: button.kotel_kontroller_primenit_profil
+          - entity: button.kotel_kontroller_otmenit_primenenie
+          - type: section
+          - entity: text.kotel_kontroller_imia_novogo_profilia
+          - entity: button.kotel_kontroller_sokhranit_profil
+          - entity: button.kotel_kontroller_obnovit_profil
+
+      - type: entities
+        title: Профили климата
+        show_header_toggle: false
+        entities:
+          - entity: sensor.kotel_kontroller_aktivnyi_profil_klimata
+          - entity: select.kotel_kontroller_profil_klimata
+          - entity: button.kotel_kontroller_primenit_profil_klimata
+          - entity: button.kotel_kontroller_otmenit_primenenie_klimat
+          - type: section
+          - entity: text.kotel_kontroller_imia_novogo_profilia_klimata
+          - entity: button.kotel_kontroller_sokhranit_profil_klimata
+          - entity: button.kotel_kontroller_obnovit_profil_klimata
+
+      - type: entities
+        title: Диагностика
+        entities:
+          - entity: sensor.kotel_kontroller_status_podkliucheniia
+          - entity: sensor.kotel_kontroller_versiia_proshivki
+          - entity: sensor.kotel_kontroller_diagnostika_parametrov
+          - entity: sensor.kotel_kontroller_trevoga_po_vode
+          - entity: sensor.kotel_kontroller_avariia_shneka
+          - entity: sensor.kotel_kontroller_oshibka_simistora
+
