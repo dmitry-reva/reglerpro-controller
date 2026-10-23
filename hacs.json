@@ -1,8 +1,9 @@
 {
-    "name": "ReglerPro Controller",
-    "homeassistant": "2026.3.0",
-    "country": ["RU"],
-    "category": "integration",
-	"content_in_root": false,
-    "filename": "kotel.zip"
+  "name": "ReglerPro Controller",
+  "homeassistant": "2026.3.0",
+  "country": ["RU"],
+  "content_in_root": false,
+  "render_readme": true,
+  "zip_release": true,
+  "filename": "kotel.zip"
 }

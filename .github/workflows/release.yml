@@ -1,0 +1,78 @@
+name: Release zip
+
+# Собирает kotel.zip из custom_components/kotel и прикладывает его к релизу.
+# HACS с "zip_release": true и "filename": "kotel.zip" скачивает именно этот asset.
+#
+# Сценарий:
+#   1. Опубликуйте GitHub Release как обычно (тег + описание).
+#   2. Этот workflow соберёт архив и добавит kotel.zip в релиз.
+#   3. HACS увидит новый asset при обновлении.
+#
+# Ручной запуск: Actions → Release zip → Run workflow → указать существующий тег.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Существующий тег релиза, например v1.4.1"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.event.release.tag_name || github.event.inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-upload:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || github.event.inputs.tag }}
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Validate integration
+        run: |
+          python -m compileall -q custom_components
+          python scripts/check_i18n.py
+          python -m unittest discover -s tests -q
+
+      - name: Build kotel.zip
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name || github.event.inputs.tag }}
+        run: |
+          python scripts/build_release_zip.py \
+            --output dist/kotel.zip \
+            --expected-version "$RELEASE_TAG"
+          python - <<'PY'
+          from pathlib import Path
+          import zipfile
+
+          archive = Path("dist/kotel.zip")
+          with zipfile.ZipFile(archive) as zf:
+              names = zf.namelist()
+          print(f"{archive}: {len(names)} entries")
+          print("manifest.json at root:", "manifest.json" in names)
+          print("no custom_components/ prefix:", not any(n.startswith("custom_components/") for n in names))
+          PY
+
+      - name: Upload asset to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name || github.event.inputs.tag }}
+        run: |
+          gh release upload "$RELEASE_TAG" dist/kotel.zip \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber
+

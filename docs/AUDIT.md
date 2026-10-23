@@ -2,7 +2,7 @@
 
 **Дата:** 23 октября 2026  
 **Версия на входе:** 1.3.1  
-**Версия после изменений:** 1.4.0  
+**Версия после изменений:** 1.4.1 (1.4.0 + zip-релиз для HACS)
 **Предмет:** `custom_components/kotel`, дашборды, документация, переводы.  
 **Метод:** статический разбор всех файлов интеграции, сверка документации с
 кодом и `functions.js` / `climate.js`, проверка JSON и Python, юнит-тесты
@@ -122,7 +122,7 @@
 | 37 | Нет `quality_scale` / `quality_scale.yaml` | добавить бронзовый чек-лист и постепенно закрывать silver |
 | 38 | Нет CI (hassfest, HACS validation, compileall, unittest, check_i18n) | добавлен минимальный GitHub Actions (compile, unittest, check_i18n, YAML); hassfest/HACS validation — следующий шаг |
 | 39 | Нет `pyproject.toml`/ruff/mypy | добавить ruff и базовый `pyright`/`mypy` в CI |
-| 40 | `hacs.json`: поле `filename` для integration не требуется | лишнее поле путает при zip-релизах | убрано в 1.4.0; оставлены `name`, `homeassistant`, `country`, `content_in_root` |
+| 40 | `hacs.json`: `category` — лишний ключ; `filename` работает только с `zip_release` | HACS-схема использует `PREVENT_EXTRA`, `filename` без zip-режима игнорировался | `category` убран; в 1.4.1 включены `zip_release: true` и `filename: kotel.zip` |
 | 41 | `assets/` с ZIP-архивами старых версий лежит в рабочей папке (в `.gitignore`) | хранить вне репозитория или в `docs/history/` без бинарников |
 | 42 | `README` требует HA 2026.3.0 «для иконок» | проверить минимальную версию brand-папки и не завышать требование без необходимости |
 
@@ -279,6 +279,13 @@ gauge, который показывает температуру датчика
   юнит-тесты парсера;
 * четыре варианта дашбордов (существующий + три новых);
 * обновлены README, INSTALLATION, CLIMATE, PROFILES, RELEASE_NOTES.
+
+### 1.4.1 — zip-релиз HACS
+
+* `hacs.json`: `zip_release` + `filename`;
+* `scripts/build_release_zip.py` с проверкой структуры и версии;
+* workflow `Release zip`, прикладывающий asset к GitHub Release;
+* тесты сборки архива.
 
 ### 1.5.0 — надёжность и удобство
 
