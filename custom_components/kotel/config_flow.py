@@ -8,7 +8,7 @@ from homeassistant.helpers import config_validation as cv  # pyright: ignore[rep
 from homeassistant.exceptions import HomeAssistantError  # pyright: ignore[reportMissingImports]
 
 from .const import DOMAIN, DEFAULT_URL
-from .profiles import EXPORT_DIR
+from .profiles import EXPORT_DIR, KIND_LABELS
 from .api import KotelApiClient, KotelApiError
 
 STEP_USER_DATA_SCHEMA = vol.Schema({
@@ -69,7 +69,7 @@ class KotelOptionsFlow(config_entries.OptionsFlow):
     def __init__(self, config_entry):
         self._config_entry = config_entry
         self._import_file = None
-        self._import_names = []
+        self._import_choices = {}
 
     @property
     def _manager(self):
@@ -142,7 +142,10 @@ class KotelOptionsFlow(config_entries.OptionsFlow):
                 placeholders["error"] = str(err)
             else:
                 self._import_file = user_input["file"]
-                self._import_names = [p["name"] for p in profiles]
+                self._import_choices = {
+                    f"{p['kind']}|{p['name']}": f"{KIND_LABELS[p['kind']]} · {p['name']}"
+                    for p in profiles
+                }
                 return await self.async_step_import_select()
         return self.async_show_form(
             step_id="import_file",
@@ -158,11 +161,13 @@ class KotelOptionsFlow(config_entries.OptionsFlow):
         if user_input is not None:
             result = await self._manager.async_import(
                 self._import_file,
-                names=user_input["profiles"],
+                keys=user_input["profiles"],
                 dev_id=user_input["controller"],
                 on_conflict=user_input["on_conflict"],
             )
-            renamed = ", ".join(f"{old} → {new}" for old, new in result["renamed"].items()) or "—"
+            renamed = ", ".join(
+                f"{KIND_LABELS[r['kind']]} · {r['from']} → {r['to']}" for r in result["renamed"]
+            ) or "—"
             return self.async_abort(
                 reason="import_done",
                 description_placeholders={
@@ -174,8 +179,8 @@ class KotelOptionsFlow(config_entries.OptionsFlow):
         return self.async_show_form(
             step_id="import_select",
             data_schema=vol.Schema({
-                vol.Required("profiles", default=self._import_names): cv.multi_select(
-                    {name: name for name in self._import_names}),
+                vol.Required("profiles", default=list(self._import_choices)): cv.multi_select(
+                    self._import_choices),
                 vol.Required("controller", default=next(iter(controllers))): vol.In(controllers),
                 vol.Required("on_conflict", default="rename"): vol.In({
                     "rename": "Добавить с номером «(2)»",

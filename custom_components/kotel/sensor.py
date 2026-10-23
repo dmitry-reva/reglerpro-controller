@@ -216,7 +216,8 @@ def _create_contr_sensors(coordinator, dev_id, dev_data):
     # Статус онлайн
     sensors.append(KotelContrOnlineSensor(coordinator, dev_id))
     # Профиль настроек, совпадающий с текущими значениями
-    sensors.append(KotelActiveProfileSensor(coordinator, dev_id))
+    sensors.append(KotelActiveProfileSensor(coordinator, dev_id, "boiler"))
+    sensors.append(KotelActiveProfileSensor(coordinator, dev_id, "climate"))
 
     # --- Диагностические сенсоры (для изучения состояний) ---
     params = dev_data.get("params", {})
@@ -476,13 +477,22 @@ class KotelContrDebugSensor(KotelBaseSensor):
 
 
 class KotelActiveProfileSensor(KotelBaseSensor):
-    """Какой сохранённый профиль соответствует текущим настройкам котла."""
+    """Какой сохранённый профиль котла или климата соответствует текущим значениям."""
 
-    def __init__(self, coordinator, dev_id):
+    # для котла unique_id прежний (kotel_<id>_active_profile)
+    _NAMES = {
+        "boiler": ("Активный профиль котла", "active_profile", "mdi:content-save-check"),
+        "climate": ("Активный профиль климата", "active_climate_profile",
+                    "mdi:content-save-check-outline"),
+    }
+
+    def __init__(self, coordinator, dev_id, kind="boiler"):
         super().__init__(coordinator, dev_id)
-        self._attr_name = "Активный профиль"
-        self._attr_unique_id = f"kotel_{dev_id}_active_profile"
-        self._attr_icon = "mdi:content-save-check"
+        self._kind = kind
+        name, suffix, icon = self._NAMES[kind]
+        self._attr_name = name
+        self._attr_unique_id = f"kotel_{dev_id}_{suffix}"
+        self._attr_icon = icon
 
     @property
     def _manager(self):
@@ -495,21 +505,22 @@ class KotelActiveProfileSensor(KotelBaseSensor):
     @property
     def native_value(self):
         manager = self._manager
-        if not manager.profile_names(self._dev_id):
+        if not manager.profile_names(self._dev_id, self._kind):
             return "нет профилей"
-        return manager.matching_profile(self._dev_id) or "изменён"
+        return manager.matching_profile(self._dev_id, self._kind) or "изменён"
 
     @property
     def extra_state_attributes(self):
         manager = self._manager
-        last = manager.last_applied(self._dev_id) or {}
+        last = manager.last_applied(self._dev_id, self._kind) or {}
         return {
-            "profiles": manager.profile_names(self._dev_id),
-            "selected": manager.selected(self._dev_id),
+            "kind": self._kind,
+            "profiles": manager.profile_names(self._dev_id, self._kind),
+            "selected": manager.selected(self._dev_id, self._kind),
             "last_applied": last.get("name"),
             "last_applied_at": last.get("at"),
             "last_applied_ok": last.get("ok"),
-            "has_undo": manager.has_undo(self._dev_id),
+            "has_undo": manager.has_undo(self._dev_id, self._kind),
         }
 
 

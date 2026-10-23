@@ -405,16 +405,17 @@ views:
           - entity: number.kotel_kontroller_ustavka_temperatury_min
           - entity: number.kotel_kontroller_korrektsiia_temperatury
 
-      # ---- 6+. Профили настроек ---------------------------------------------
-      # ID сущностей замените на свои (карточка устройства → сущность → ⚙).
+      # ---- 6+. Профили котла -------------------------------------------------
+      # ID у существующих установок остаются прежними (без суффикса «котла»).
+      # ID замените на свои (карточка устройства → сущность → ⚙).
       - type: entities
-        title: Профили настроек
+        title: Профили котла
         show_header_toggle: false
         entities:
           - entity: sensor.kotel_kontroller_aktivnyi_profil
             name: Активный профиль
           - entity: select.kotel_kontroller_profil
-            name: Профиль
+            name: Профиль котла
           - entity: button.kotel_kontroller_primenit_profil
             name: Применить выбранный
           - entity: button.kotel_kontroller_otmenit_primenenie
@@ -425,6 +426,28 @@ views:
           - entity: button.kotel_kontroller_sokhranit_profil
             name: Сохранить как новый
           - entity: button.kotel_kontroller_obnovit_profil
+            name: Обновить выбранный
+
+      # ---- 6++. Профили климата (режим, цель, расписание) -------------------
+      # Применяются и откатываются независимо от профилей котла.
+      - type: entities
+        title: Профили климата
+        show_header_toggle: false
+        entities:
+          - entity: sensor.kotel_kontroller_aktivnyi_profil_klimata
+            name: Активный профиль
+          - entity: select.kotel_kontroller_profil_klimata
+            name: Профиль климата
+          - entity: button.kotel_kontroller_primenit_profil_klimata
+            name: Применить выбранный
+          - entity: button.kotel_kontroller_otmenit_primenenie_klimat
+            name: Отменить применение
+          - type: section
+          - entity: text.kotel_kontroller_imia_novogo_profilia_klimata
+            name: Имя нового профиля
+          - entity: button.kotel_kontroller_sokhranit_profil_klimata
+            name: Сохранить как новый
+          - entity: button.kotel_kontroller_obnovit_profil_klimata
             name: Обновить выбранный
 
       # ---- 7. Диагностика ----------------------------------------------------

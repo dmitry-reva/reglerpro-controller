@@ -18,7 +18,7 @@ from homeassistant.helpers import (  # pyright: ignore[reportMissingImports]
 )
 
 from .const import DOMAIN
-from .profiles import ALL_SCOPES, DEFAULT_SCOPES, KotelProfileManager
+from .profiles import ALL_KINDS, ALL_SCOPES, KIND_BOILER, KIND_CLIMATE, KotelProfileManager
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -31,37 +31,48 @@ def _schema(fields: dict) -> vol.Schema:
 
 
 _SCOPES = vol.All(cv.ensure_list, [vol.In(ALL_SCOPES)])
+_KIND = vol.In(list(ALL_KINDS))
 
 SAVE_SCHEMA = _schema({
     vol.Required("name"): cv.string,
-    vol.Optional("scopes", default=list(DEFAULT_SCOPES)): _SCOPES,
+    vol.Optional("kind"): _KIND,
+    vol.Optional("scopes"): _SCOPES,
     vol.Optional("note", default=""): cv.string,
     vol.Optional("overwrite", default=False): cv.boolean,
+    vol.Optional("all_schedules", default=False): cv.boolean,
 })
 APPLY_SCHEMA = _schema({
     vol.Required("name"): cv.string,
+    vol.Optional("kind"): _KIND,
     vol.Optional("scopes"): _SCOPES,
     vol.Optional("dry_run", default=False): cv.boolean,
     vol.Optional("force", default=False): cv.boolean,
     vol.Optional("verify", default=True): cv.boolean,
 })
 UNDO_SCHEMA = _schema({
+    vol.Optional("kind", default=KIND_BOILER): _KIND,
     vol.Optional("force", default=False): cv.boolean,
     vol.Optional("verify", default=True): cv.boolean,
 })
-DELETE_SCHEMA = _schema({vol.Required("name"): cv.string})
+DELETE_SCHEMA = _schema({
+    vol.Required("name"): cv.string,
+    vol.Optional("kind"): _KIND,
+})
 RENAME_SCHEMA = _schema({
     vol.Required("name"): cv.string,
     vol.Required("new_name"): cv.string,
+    vol.Optional("kind"): _KIND,
 })
 LIST_SCHEMA = _schema({})
 EXPORT_SCHEMA = _schema({
     vol.Optional("profiles"): vol.All(cv.ensure_list, [cv.string]),
+    vol.Optional("kind"): _KIND,
     vol.Optional("to_www", default=False): cv.boolean,
 })
 IMPORT_SCHEMA = _schema({
     vol.Required("file"): cv.string,
     vol.Optional("profiles"): vol.All(cv.ensure_list, [cv.string]),
+    vol.Optional("kind"): _KIND,
     vol.Optional("on_conflict", default="rename"): vol.In(["overwrite", "skip", "rename"]),
 })
 
@@ -115,66 +126,84 @@ def async_register_services(hass: HomeAssistant) -> None:
         manager = _manager(hass)
         dev_id = _single_device(hass, manager, call)
         return await manager.async_save_profile(
-            dev_id, call.data["name"], call.data["scopes"],
-            call.data["note"], call.data["overwrite"])
+            dev_id, call.data["name"], call.data.get("scopes"),
+            call.data["note"], call.data["overwrite"],
+            kind=call.data.get("kind"), all_schedules=call.data["all_schedules"])
 
     async def apply_profile(call: ServiceCall):
         manager = _manager(hass)
         dev_id = _single_device(hass, manager, call)
         return await manager.async_apply(
             dev_id, call.data["name"], call.data.get("scopes"),
-            dry_run=call.data["dry_run"], force=call.data["force"],
-            verify=call.data["verify"])
+            kind=call.data.get("kind"), dry_run=call.data["dry_run"],
+            force=call.data["force"], verify=call.data["verify"])
 
     async def undo_apply(call: ServiceCall):
         manager = _manager(hass)
         dev_id = _single_device(hass, manager, call)
         return await manager.async_undo(
-            dev_id, force=call.data["force"], verify=call.data["verify"])
+            dev_id, kind=call.data["kind"], force=call.data["force"],
+            verify=call.data["verify"])
 
     async def delete_profile(call: ServiceCall):
         manager = _manager(hass)
         await manager.async_delete_profile(
-            _single_device(hass, manager, call), call.data["name"])
+            _single_device(hass, manager, call), call.data["name"],
+            kind=call.data.get("kind"))
 
     async def rename_profile(call: ServiceCall):
         manager = _manager(hass)
         await manager.async_rename_profile(
-            _single_device(hass, manager, call), call.data["name"], call.data["new_name"])
+            _single_device(hass, manager, call), call.data["name"],
+            call.data["new_name"], kind=call.data.get("kind"))
+
+    def _kind_block(manager, dev_id: str, kind: str) -> dict:
+        profiles = []
+        for name in manager.profile_names(dev_id, kind):
+            profile = manager.get_profile(dev_id, name, kind)
+            profiles.append({
+                "name": name,
+                "kind": kind,
+                "scopes": profile["scopes"],
+                "values": sum(len(v) for v in profile["values"].values()),
+                "mode": profile.get("mode"),
+                "note": profile.get("note", ""),
+                "firmware": profile.get("firmware"),
+                "updated": profile.get("updated"),
+            })
+        return {
+            "selected": manager.selected(dev_id, kind),
+            "last_applied": manager.last_applied(dev_id, kind),
+            "matching": manager.matching_profile(dev_id, kind),
+            "has_undo": manager.has_undo(dev_id, kind),
+            "profiles": profiles,
+        }
 
     async def list_profiles(call: ServiceCall):
         manager = _manager(hass)
         devices = {}
         for dev_id in resolve_device_ids(hass, manager, call):
-            profiles = []
-            for name in manager.profile_names(dev_id):
-                profile = manager.get_profile(dev_id, name)
-                profiles.append({
-                    "name": name,
-                    "scopes": profile["scopes"],
-                    "values": sum(len(v) for v in profile["values"].values()),
-                    "note": profile.get("note", ""),
-                    "firmware": profile.get("firmware"),
-                    "updated": profile.get("updated"),
-                })
+            # поля профилей котла остаются на верхнем уровне (совместимо с версией 1.3.0),
+            # профили климата — в блоке "climate"
             devices[dev_id] = {
                 "name": manager.device_name(dev_id),
-                "selected": manager.selected(dev_id),
-                "last_applied": manager.last_applied(dev_id),
-                "matching": manager.matching_profile(dev_id),
-                "has_undo": manager.has_undo(dev_id),
-                "profiles": profiles,
+                **_kind_block(manager, dev_id, KIND_BOILER),
+                "boiler": _kind_block(manager, dev_id, KIND_BOILER),
+                "climate": _kind_block(manager, dev_id, KIND_CLIMATE),
             }
         return {"devices": devices}
 
     async def export_profiles(call: ServiceCall):
         manager = _manager(hass)
         names = call.data.get("profiles")
-        if call.data.get("device_id") or names:
+        kind = call.data.get("kind")
+        if call.data.get("device_id") or names or kind:
             keys = []
             for dev_id in resolve_device_ids(hass, manager, call):
-                for name in (names or manager.profile_names(dev_id)):
-                    keys.append(f"{dev_id}|{name}")
+                for k in ([kind] if kind else ALL_KINDS):
+                    for name in manager.profile_names(dev_id, k):
+                        if names is None or name in names:
+                            keys.append(f"{dev_id}|{k}|{name}")
         else:
             keys = None                      # все профили всех контроллеров
         return await manager.async_export(keys, to_www=call.data["to_www"])
@@ -184,7 +213,8 @@ def async_register_services(hass: HomeAssistant) -> None:
         dev_id = _single_device(hass, manager, call)
         return await manager.async_import(
             call.data["file"], names=call.data.get("profiles"),
-            dev_id=dev_id, on_conflict=call.data["on_conflict"])
+            kind=call.data.get("kind"), dev_id=dev_id,
+            on_conflict=call.data["on_conflict"])
 
     register = hass.services.async_register
     register(DOMAIN, "save_profile", save_profile, schema=SAVE_SCHEMA,
