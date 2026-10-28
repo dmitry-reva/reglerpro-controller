@@ -476,6 +476,9 @@
       "boiler_profile_undo": {
         "name": "Undo boiler profile"
       },
+      "boiler_profile_delete": {
+        "name": "Delete boiler profile"
+      },
       "climate_profile_save": {
         "name": "Save climate profile"
       },
@@ -487,6 +490,9 @@
       },
       "climate_profile_undo": {
         "name": "Undo climate profile"
+      },
+      "climate_profile_delete": {
+        "name": "Delete climate profile"
       }
     }
   },

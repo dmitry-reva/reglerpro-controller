@@ -476,6 +476,9 @@
       "boiler_profile_undo": {
         "name": "Отменить применение (котёл)"
       },
+      "boiler_profile_delete": {
+        "name": "Удалить профиль котла"
+      },
       "climate_profile_save": {
         "name": "Сохранить профиль климата"
       },
@@ -487,6 +490,9 @@
       },
       "climate_profile_undo": {
         "name": "Отменить применение (климат)"
+      },
+      "climate_profile_delete": {
+        "name": "Удалить профиль климата"
       }
     }
   },

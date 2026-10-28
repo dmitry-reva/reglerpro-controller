@@ -1,4 +1,4 @@
-"""Кнопки профилей: сохранить, обновить, применить, отменить — для котла и климата."""
+"""Кнопки профилей: сохранить, обновить, применить, отменить, удалить — для котла и климата."""
 
 from __future__ import annotations
 
@@ -17,12 +17,14 @@ BUTTONS = {
         "update": ("boiler_profile_update", "mdi:content-save-edit"),
         "apply": ("boiler_profile_apply", "mdi:play-circle"),
         "undo": ("boiler_profile_undo", "mdi:undo-variant"),
+        "delete": ("boiler_profile_delete", "mdi:delete-outline"),
     },
     KIND_CLIMATE: {
         "save": ("climate_profile_save", "mdi:content-save-plus-outline"),
         "update": ("climate_profile_update", "mdi:content-save-edit-outline"),
         "apply": ("climate_profile_apply", "mdi:play-circle-outline"),
         "undo": ("climate_profile_undo", "mdi:undo"),
+        "delete": ("climate_profile_delete", "mdi:delete-outline"),
     },
 }
 # Для котла суффиксы прежние (profile_<действие>), для климата — climate_profile_<действие>
@@ -68,6 +70,8 @@ class KotelProfileButton(KotelEntity, ButtonEntity):
             return False
         if self._action == "undo":               # откат доступен только после применения
             return self._manager.has_undo(self._dev_id, self._kind)
+        if self._action == "delete":             # удалять можно только выбранный профиль
+            return self._manager.selected(self._dev_id, self._kind) is not None
         return True
 
     async def async_added_to_hass(self):
@@ -100,3 +104,6 @@ class KotelProfileButton(KotelEntity, ButtonEntity):
             report = await manager.async_undo(dev_id, kind=kind)
             if not report["ok"]:
                 raise HomeAssistantError("Откат выполнен не полностью: " + _summary(report))
+        elif self._action == "delete":
+            # необратимо: подтверждение запрашивает карточка дашборда (tap_action.confirmation)
+            await manager.async_delete_profile(dev_id, self._selected(), kind=kind)

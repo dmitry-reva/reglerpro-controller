@@ -64,6 +64,7 @@ MAX_NAME_LENGTH = 40
 # --- события -----------------------------------------------------------------
 EVENT_PROFILE_APPLIED = "kotel_profile_applied"
 EVENT_PROFILE_SAVED = "kotel_profile_saved"
+EVENT_PROFILE_DELETED = "kotel_profile_deleted"
 
 # --- поведение применения (в тестах переопределяются) ------------------------
 WRITE_DELAY = 0.3          # пауза между командами, с
@@ -814,6 +815,8 @@ class KotelProfileManager:
         if bucket.get("selected") == name:
             bucket["selected"] = None
         await self._async_save()
+        self.hass.bus.async_fire(EVENT_PROFILE_DELETED, {
+            "device_id": dev_id, "kind": kind, "profile": name})
 
     async def async_rename_profile(self, dev_id: str, name: str, new_name: str, *,
                                    kind: str | None = None) -> None:
@@ -1164,7 +1167,7 @@ class KotelProfileManager:
 
     # ------------------------------------------------------------------ удаление пачкой
     async def async_delete_many(self, keys: list[str]) -> int:
-        count = 0
+        deleted: list[tuple[str, str, str]] = []
         for key in keys:
             dev_id, kind, name = _parse_key(key)
             device = self._data["devices"].get(dev_id)
@@ -1173,7 +1176,10 @@ class KotelProfileManager:
                 del bucket["profiles"][name]
                 if bucket.get("selected") == name:
                     bucket["selected"] = None
-                count += 1
-        if count:
+                deleted.append((dev_id, kind, name))
+        if deleted:
             await self._async_save()
-        return count
+            for dev_id, kind, name in deleted:
+                self.hass.bus.async_fire(EVENT_PROFILE_DELETED, {
+                    "device_id": dev_id, "kind": kind, "profile": name})
+        return len(deleted)
