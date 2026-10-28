@@ -1,0 +1,768 @@
+# Панель Home Assistant «Котёл» — исправленная версия с улучшениями.
+# Идентификаторы сущностей, помеченные в README изменений как «по шаблону», проверьте у себя:
+# жёлтый знак на карточке означает, что сущности с таким ID нет.
+title: Котёл
+views:
+  - title: Обзор
+    path: overview
+    icon: mdi:fire
+    type: sections
+    max_columns: 4
+    sections:
+      - type: grid
+        cards:
+          - type: picture-elements
+            image: /local/kotel/controller.png
+            elements:
+              - type: conditional
+                conditions:
+                  - condition: state
+                    entity: input_select.kotel_display_mode
+                    state: '1'
+                elements:
+                  - type: state-label
+                    entity: sensor.kotel_kontroller_temperatura_vody
+                    style:
+                      left: 55.9%
+                      top: 33.2%
+                      transform: translate(-50%, -50%)
+                      font-size: 34px
+                      font-weight: bold
+                      font-family: Arial, Helvetica, sans-serif
+                      color: '#ff3b30'
+                      text-shadow: 0 0 8px rgba(255, 59, 48, 0.8)
+                      pointer-events: none
+              - type: conditional
+                conditions:
+                  - condition: state
+                    entity: input_select.kotel_display_mode
+                    state: '2'
+                elements:
+                  - type: state-label
+                    entity: number.kotel_kontroller_ventiliator_max
+                    style:
+                      left: 55.9%
+                      top: 33.2%
+                      transform: translate(-50%, -50%)
+                      font-size: 34px
+                      font-weight: bold
+                      font-family: Arial, Helvetica, sans-serif
+                      color: '#ff3b30'
+                      text-shadow: 0 0 8px rgba(255, 59, 48, 0.8)
+                      pointer-events: none
+              - type: conditional
+                conditions:
+                  - condition: state
+                    entity: input_select.kotel_display_mode
+                    state: '3'
+                elements:
+                  - type: state-label
+                    entity: sensor.kotel_kontroller_shnek_interval_nagrev
+                    style:
+                      left: 55.9%
+                      top: 33.2%
+                      transform: translate(-50%, -50%)
+                      font-size: 34px
+                      font-weight: bold
+                      font-family: Arial, Helvetica, sans-serif
+                      color: '#ff3b30'
+                      text-shadow: 0 0 8px rgba(255, 59, 48, 0.8)
+                      pointer-events: none
+              - type: conditional
+                conditions:
+                  - condition: state
+                    entity: input_select.kotel_display_mode
+                    state: '4'
+                elements:
+                  - type: state-label
+                    entity: sensor.kotel_kontroller_shnek_interval_podderzhanie
+                    style:
+                      left: 55.9%
+                      top: 33.2%
+                      transform: translate(-50%, -50%)
+                      font-size: 34px
+                      font-weight: bold
+                      font-family: Arial, Helvetica, sans-serif
+                      color: '#ff3b30'
+                      text-shadow: 0 0 8px rgba(255, 59, 48, 0.8)
+                      pointer-events: none
+              - type: conditional
+                conditions:
+                  - condition: state
+                    entity: input_select.kotel_display_mode
+                    state: '5'
+                elements:
+                  - type: state-label
+                    entity: number.kotel_kontroller_vremia_produvki
+                    style:
+                      left: 55.9%
+                      top: 33.2%
+                      transform: translate(-50%, -50%)
+                      font-size: 34px
+                      font-weight: bold
+                      font-family: Arial, Helvetica, sans-serif
+                      color: '#ff3b30'
+                      text-shadow: 0 0 8px rgba(255, 59, 48, 0.8)
+                      pointer-events: none
+              - type: conditional
+                conditions:
+                  - condition: state
+                    entity: input_select.kotel_display_mode
+                    state: '6'
+                elements:
+                  - type: state-label
+                    entity: number.kotel_kontroller_interval_produvki
+                    style:
+                      left: 55.9%
+                      top: 33.2%
+                      transform: translate(-50%, -50%)
+                      font-size: 34px
+                      font-weight: bold
+                      font-family: Arial, Helvetica, sans-serif
+                      color: '#ff3b30'
+                      text-shadow: 0 0 8px rgba(255, 59, 48, 0.8)
+                      pointer-events: none
+              - type: conditional
+                conditions:
+                  - condition: state
+                    entity: input_select.kotel_display_mode
+                    state: '7'
+                elements:
+                  - type: state-label
+                    entity: number.kotel_kontroller_ustavka_temperatury_min
+                    style:
+                      left: 55.9%
+                      top: 33.2%
+                      transform: translate(-50%, -50%)
+                      font-size: 34px
+                      font-weight: bold
+                      font-family: Arial, Helvetica, sans-serif
+                      color: '#ff3b30'
+                      text-shadow: 0 0 8px rgba(255, 59, 48, 0.8)
+                      pointer-events: none
+              - type: conditional
+                conditions:
+                  - condition: state
+                    entity: input_select.kotel_display_mode
+                    state: '8'
+                elements:
+                  - type: state-label
+                    entity: number.kotel_kontroller_vremia_ugasaniia
+                    style:
+                      left: 55.9%
+                      top: 33.2%
+                      transform: translate(-50%, -50%)
+                      font-size: 34px
+                      font-weight: bold
+                      font-family: Arial, Helvetica, sans-serif
+                      color: '#ff3b30'
+                      text-shadow: 0 0 8px rgba(255, 59, 48, 0.8)
+                      pointer-events: none
+              - type: conditional
+                conditions:
+                  - condition: state
+                    entity: input_select.kotel_display_mode
+                    state: '9'
+                elements:
+                  - type: state-label
+                    entity: number.kotel_kontroller_temperatura_nasosa
+                    style:
+                      left: 55.9%
+                      top: 33.2%
+                      transform: translate(-50%, -50%)
+                      font-size: 34px
+                      font-weight: bold
+                      font-family: Arial, Helvetica, sans-serif
+                      color: '#ff3b30'
+                      text-shadow: 0 0 8px rgba(255, 59, 48, 0.8)
+                      pointer-events: none
+              - type: conditional
+                conditions:
+                  - condition: state
+                    entity: input_select.kotel_display_mode
+                    state: A
+                elements:
+                  - type: state-label
+                    entity: number.kotel_kontroller_ventiliator_min
+                    style:
+                      left: 55.9%
+                      top: 33.2%
+                      transform: translate(-50%, -50%)
+                      font-size: 34px
+                      font-weight: bold
+                      font-family: Arial, Helvetica, sans-serif
+                      color: '#ff3b30'
+                      text-shadow: 0 0 8px rgba(255, 59, 48, 0.8)
+                      pointer-events: none
+              - type: conditional
+                conditions:
+                  - condition: state
+                    entity: input_select.kotel_display_mode
+                    state: B
+                elements:
+                  - type: state-label
+                    entity: number.kotel_kontroller_korrektsiia_temperatury
+                    style:
+                      left: 55.9%
+                      top: 33.2%
+                      transform: translate(-50%, -50%)
+                      font-size: 34px
+                      font-weight: bold
+                      font-family: Arial, Helvetica, sans-serif
+                      color: '#ff3b30'
+                      text-shadow: 0 0 8px rgba(255, 59, 48, 0.8)
+                      pointer-events: none
+              - type: conditional
+                conditions:
+                  - condition: state
+                    entity: input_select.kotel_display_mode
+                    state: E
+                elements:
+                  - type: state-label
+                    entity: sensor.kotel_kontroller_klimat_temperatura_datchika
+                    style:
+                      left: 55.9%
+                      top: 33.2%
+                      transform: translate(-50%, -50%)
+                      font-size: 34px
+                      font-weight: bold
+                      font-family: Arial, Helvetica, sans-serif
+                      color: '#ff3b30'
+                      text-shadow: 0 0 8px rgba(255, 59, 48, 0.8)
+                      pointer-events: none
+              - type: conditional
+                conditions:
+                  - condition: state
+                    entity: input_select.kotel_display_mode
+                    state: S
+                elements:
+                  - type: state-label
+                    entity: sensor.kotel_kontroller_temperatura_shneka
+                    style:
+                      left: 55.9%
+                      top: 33.2%
+                      transform: translate(-50%, -50%)
+                      font-size: 34px
+                      font-weight: bold
+                      font-family: Arial, Helvetica, sans-serif
+                      color: '#ff3b30'
+                      text-shadow: 0 0 8px rgba(255, 59, 48, 0.8)
+                      pointer-events: none
+              - type: state-label
+                entity: input_select.kotel_display_mode
+                style:
+                  left: 44%
+                  top: 26%
+                  transform: translate(-50%, -50%)
+                  font-size: 14px
+                  font-weight: bold
+                  font-family: Arial, Helvetica, sans-serif
+                  color: '#ff3b30'
+                  opacity: 0.8
+                  pointer-events: none
+              - type: state-icon
+                entity: switch.kotel_kontroller_start_stop
+                icon: mdi:power
+                tap_action:
+                  action: toggle
+                  confirmation:
+                    text: Переключить котёл?
+                style:
+                  left: 82.9%
+                  top: 26.7%
+                  transform: translate(-50%, -50%)
+                  --mdc-icon-size: 34px
+                  opacity: 0.35
+              - type: state-icon
+                entity: input_select.kotel_display_mode
+                icon: mdi:alpha-f-box-outline
+                tap_action:
+                  action: perform-action
+                  perform_action: input_select.select_next
+                  target:
+                    entity_id: input_select.kotel_display_mode
+                  data:
+                    cycle: true
+                style:
+                  left: 83%
+                  top: 74%
+                  transform: translate(-50%, -50%)
+                  --mdc-icon-size: 34px
+                  opacity: 0.35
+              - type: conditional
+                conditions:
+                  - condition: state
+                    entity: sensor.kotel_kontroller_ventiliator_vkliuchen
+                    state: да
+                elements:
+                  - type: icon
+                    icon: mdi:circle
+                    style:
+                      left: 52%
+                      top: 67.5%
+                      transform: translate(-50%, -50%)
+                      color: '#00e676'
+                      --mdc-icon-size: 16px
+              - type: conditional
+                conditions:
+                  - condition: state
+                    entity: sensor.kotel_kontroller_sostoianie
+                    state: Розжиг/Угасание
+                elements:
+                  - type: icon
+                    icon: mdi:circle
+                    style:
+                      left: 52%
+                      top: 76%
+                      transform: translate(-50%, -50%)
+                      color: '#ffab00'
+                      --mdc-icon-size: 16px
+              - type: conditional
+                conditions:
+                  - condition: state
+                    entity: sensor.kotel_kontroller_status_podkliucheniia
+                    state: online
+                elements:
+                  - type: icon
+                    icon: mdi:circle
+                    style:
+                      left: 52%
+                      top: 83.6%
+                      transform: translate(-50%, -50%)
+                      color: '#00e676'
+                      --mdc-icon-size: 16px
+              - type: conditional
+                conditions:
+                  - condition: state
+                    entity: sensor.kotel_kontroller_klimat_vkliuchen
+                    state: да
+                elements:
+                  - type: icon
+                    icon: mdi:circle
+                    style:
+                      left: 52%
+                      top: 91%
+                      transform: translate(-50%, -50%)
+                      color: '#00e676'
+                      --mdc-icon-size: 16px
+            grid_options:
+              columns: full
+      - type: grid
+        cards:
+          - type: heading
+            heading: Контроллер
+            heading_style: title
+            icon: mdi:fire
+            badges:
+              - type: entity
+                entity: sensor.kotel_kontroller_status_podkliucheniia
+                show_state: true
+                show_icon: true
+              - type: entity
+                entity: sensor.kotel_kontroller_aktivnyi_profil
+                show_state: true
+                show_icon: true
+              - type: entity
+                entity: sensor.kotel_kontroller_aktivnyi_profil_klimata
+                show_state: true
+                show_icon: true
+          - type: conditional
+            conditions:
+              - condition: or
+                conditions:
+                  - condition: state
+                    entity: sensor.kotel_kontroller_trevoga_po_vode
+                    state: да
+                  - condition: state
+                    entity: sensor.kotel_kontroller_avariia_shneka
+                    state: да
+                  - condition: state
+                    entity: sensor.kotel_kontroller_oshibka_datchika_t_vody
+                    state: да
+                  - condition: state
+                    entity: sensor.kotel_kontroller_oshibka_datchika_t_shneka
+                    state: да
+                  - condition: state
+                    entity: sensor.kotel_kontroller_oshibka_simistora
+                    state: да
+            card:
+              type: markdown
+              content: '## ⚠️ Неисправность котла
+
+                Проверьте аварии и ошибки в разделе **Диагностика**.
+
+                '
+          - type: tile
+            entity: sensor.kotel_kontroller_temperatura_vody
+            name: Температура воды
+            icon: mdi:water-thermometer
+            vertical: true
+            grid_options:
+              columns: 12
+              rows: 3
+            features:
+              - type: trend-graph
+          - type: tile
+            entity: sensor.kotel_kontroller_sostoianie
+            name: Состояние
+            icon: mdi:state-machine
+            vertical: true
+          - type: tile
+            entity: sensor.kotel_kontroller_status_podkliucheniia
+            name: Связь
+            icon: mdi:wifi
+            vertical: true
+          - type: tile
+            entity: sensor.kotel_kontroller_ustavka_temperatury_max
+            name: Уставка (макс.)
+            icon: mdi:thermometer-high
+            vertical: true
+          - type: tile
+            entity: sensor.kotel_kontroller_ustavka_temperatury_min
+            name: Уставка (мин.)
+            icon: mdi:thermometer-low
+            vertical: true
+      - type: grid
+        cards:
+          - type: heading
+            heading: Термостат
+            heading_style: title
+            icon: mdi:home-thermometer
+          - type: thermostat
+            entity: climate.kotel_kontroller_termostat
+            name: Климат-контроль
+            features:
+              - type: climate-hvac-modes
+                hvac_modes:
+                  - 'off'
+                  - heat
+                  - auto
+              - type: climate-preset-modes
+                style: dropdown
+                preset_modes:
+                  - Расписание 7/7
+                  - Расписание 5/2
+                  - Расписание 4/1/2
+          - type: tile
+            entity: select.kotel_kontroller_datchik_klimat_kontrolia
+            name: Датчик температуры
+            icon: mdi:thermometer-check
+            vertical: false
+          - type: tile
+            entity: sensor.kotel_kontroller_klimat_temperatura_datchika
+            name: Температура в помещении
+            icon: mdi:home-thermometer-outline
+            vertical: false
+      - type: grid
+        cards:
+          - type: heading
+            heading: Управление
+            heading_style: title
+            icon: mdi:tune
+          - type: tile
+            entity: switch.kotel_kontroller_start_stop
+            name: Старт / Стоп
+            icon: mdi:power
+            vertical: true
+            tap_action:
+              action: toggle
+              confirmation:
+                text: Переключить котёл?
+          - type: tile
+            entity: number.kotel_kontroller_ustavka_temperatury_max
+            name: Уставка (макс.)
+            icon: mdi:thermometer-high
+            vertical: true
+          - type: tile
+            entity: number.kotel_kontroller_ustavka_temperatury_min
+            name: Уставка (мин.)
+            icon: mdi:thermometer-low
+            vertical: true
+          - type: tile
+            entity: number.kotel_kontroller_korrektsiia_temperatury
+            name: Коррекция
+            icon: mdi:thermometer-plus
+            vertical: true
+      - type: grid
+        cards:
+          - type: heading
+            heading: Профили
+            heading_style: title
+            icon: mdi:content-save-cog
+          - type: entities
+            title: Котёл
+            show_header_toggle: false
+            entities:
+              - entity: sensor.kotel_kontroller_aktivnyi_profil
+                name: Активный
+              - entity: select.kotel_kontroller_profil
+                name: Профиль
+              - entity: button.kotel_kontroller_primenit_profil
+                name: Применить выбранный
+              - entity: button.kotel_kontroller_otmenit_primenenie
+                name: Отменить применение
+              - type: section
+              - entity: text.kotel_kontroller_imia_novogo_profilia
+                name: Имя нового профиля
+              - entity: button.kotel_kontroller_sokhranit_profil
+                name: Сохранить как новый
+              - entity: button.kotel_kontroller_obnovit_profil
+                name: Обновить выбранный
+          - &id001
+            type: entities
+            title: Климат
+            show_header_toggle: false
+            entities:
+              - entity: sensor.kotel_kontroller_aktivnyi_profil_klimata
+                name: Активный
+              - entity: select.kotel_kontroller_profil_klimata
+                name: Профиль
+              - entity: button.kotel_kontroller_primenit_profil_klimata
+                name: Применить выбранный
+              - entity: button.kotel_kontroller_otmenit_primenenie_klimat
+                name: Отменить применение
+              - type: section
+              - entity: text.kotel_kontroller_imia_novogo_profilia_klimata
+                name: Имя нового профиля
+              - entity: button.kotel_kontroller_sokhranit_profil_klimata
+                name: Сохранить как новый
+              - entity: button.kotel_kontroller_obnovit_profil_klimata
+                name: Обновить выбранный
+  - title: Климат
+    path: climate
+    icon: mdi:home-thermometer
+    type: sections
+    max_columns: 3
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: Режим
+            heading_style: title
+          - type: thermostat
+            entity: climate.kotel_kontroller_termostat
+            features:
+              - type: climate-hvac-modes
+                hvac_modes:
+                  - 'off'
+                  - heat
+                  - auto
+              - type: climate-preset-modes
+                style: dropdown
+                preset_modes:
+                  - Расписание 7/7
+                  - Расписание 5/2
+                  - Расписание 4/1/2
+          - type: entities
+            title: Датчик климата
+            entities:
+              - entity: select.kotel_kontroller_datchik_klimat_kontrolia
+              - entity: sensor.kotel_kontroller_klimat_temperatura_datchika
+                name: Температура
+              - entity: sensor.kotel_kontroller_klimat_tselevaia_temperatura
+                name: Целевая температура
+      - type: grid
+        cards:
+          - type: heading
+            heading: Профили климата
+            heading_style: title
+            icon: mdi:content-save-cog-outline
+          - *id001
+          - type: markdown
+            content: Профиль климата хранит режим, целевую температуру и расписание **активного** режима. Применение не включает и не выключает климат-контроль.
+      - type: grid
+        cards:
+          - type: heading
+            heading: Расписание 7/7
+            heading_style: subtitle
+          - type: entities
+            title: ПН–ВС
+            entities:
+              - entity: number.kotel_kontroller_raspisanie_7_7_pn_vs_p1_nachalo
+                name: П1 — начало
+              - entity: number.kotel_kontroller_raspisanie_7_7_pn_vs_p1_tdeg
+                name: П1 — температура
+              - entity: number.kotel_kontroller_raspisanie_7_7_pn_vs_p2_nachalo
+                name: П2 — начало
+              - entity: number.kotel_kontroller_raspisanie_7_7_pn_vs_p2_tdeg
+                name: П2 — температура
+              - entity: number.kotel_kontroller_raspisanie_7_7_pn_vs_p3_nachalo
+                name: П3 — начало
+              - entity: number.kotel_kontroller_raspisanie_7_7_pn_vs_p3_tdeg
+                name: П3 — температура
+              - entity: number.kotel_kontroller_raspisanie_7_7_pn_vs_p4_nachalo
+                name: П4 — начало
+              - entity: number.kotel_kontroller_raspisanie_7_7_pn_vs_p4_tdeg
+                name: П4 — температура
+      - type: grid
+        cards:
+          - type: heading
+            heading: Расписание 5/2
+            heading_style: subtitle
+          - type: entities
+            title: ПН–ПТ
+            entities:
+              - entity: number.kotel_kontroller_raspisanie_5_2_pn_pt_p1_nachalo
+                name: П1 — начало
+              - entity: number.kotel_kontroller_raspisanie_5_2_pn_pt_p1_tdeg
+                name: П1 — температура
+              - entity: number.kotel_kontroller_raspisanie_5_2_pn_pt_p2_nachalo
+                name: П2 — начало
+              - entity: number.kotel_kontroller_raspisanie_5_2_pn_pt_p2_tdeg
+                name: П2 — температура
+              - entity: number.kotel_kontroller_raspisanie_5_2_pn_pt_p3_nachalo
+                name: П3 — начало
+              - entity: number.kotel_kontroller_raspisanie_5_2_pn_pt_p3_tdeg
+                name: П3 — температура
+              - entity: number.kotel_kontroller_raspisanie_5_2_pn_pt_p4_nachalo
+                name: П4 — начало
+              - entity: number.kotel_kontroller_raspisanie_5_2_pn_pt_p4_tdeg
+                name: П4 — температура
+          - type: entities
+            title: СБ–ВС
+            entities:
+              - entity: number.kotel_kontroller_raspisanie_5_2_sb_vs_p1_nachalo
+                name: П1 — начало
+              - entity: number.kotel_kontroller_raspisanie_5_2_sb_vs_p1_tdeg
+                name: П1 — температура
+              - entity: number.kotel_kontroller_raspisanie_5_2_sb_vs_p2_nachalo
+                name: П2 — начало
+              - entity: number.kotel_kontroller_raspisanie_5_2_sb_vs_p2_tdeg
+                name: П2 — температура
+              - entity: number.kotel_kontroller_raspisanie_5_2_sb_vs_p3_nachalo
+                name: П3 — начало
+              - entity: number.kotel_kontroller_raspisanie_5_2_sb_vs_p3_tdeg
+                name: П3 — температура
+              - entity: number.kotel_kontroller_raspisanie_5_2_sb_vs_p4_nachalo
+                name: П4 — начало
+              - entity: number.kotel_kontroller_raspisanie_5_2_sb_vs_p4_tdeg
+                name: П4 — температура
+      - type: grid
+        cards:
+          - type: heading
+            heading: Расписание 4/1/2
+            heading_style: subtitle
+          - type: entities
+            title: ПН–ЧТ
+            entities:
+              - entity: number.kotel_kontroller_raspisanie_4_1_2_pn_cht_p1_nachalo
+                name: П1 — начало
+              - entity: number.kotel_kontroller_raspisanie_4_1_2_pn_cht_p1_tdeg
+                name: П1 — температура
+              - entity: number.kotel_kontroller_raspisanie_4_1_2_pn_cht_p2_nachalo
+                name: П2 — начало
+              - entity: number.kotel_kontroller_raspisanie_4_1_2_pn_cht_p2_tdeg
+                name: П2 — температура
+              - entity: number.kotel_kontroller_raspisanie_4_1_2_pn_cht_p3_nachalo
+                name: П3 — начало
+              - entity: number.kotel_kontroller_raspisanie_4_1_2_pn_cht_p3_tdeg
+                name: П3 — температура
+              - entity: number.kotel_kontroller_raspisanie_4_1_2_pn_cht_p4_nachalo
+                name: П4 — начало
+              - entity: number.kotel_kontroller_raspisanie_4_1_2_pn_cht_p4_tdeg
+                name: П4 — температура
+          - type: entities
+            title: ПТ
+            entities:
+              - entity: number.kotel_kontroller_raspisanie_4_1_2_pt_p1_nachalo
+                name: П1 — начало
+              - entity: number.kotel_kontroller_raspisanie_4_1_2_pt_p1_tdeg
+                name: П1 — температура
+              - entity: number.kotel_kontroller_raspisanie_4_1_2_pt_p2_nachalo
+                name: П2 — начало
+              - entity: number.kotel_kontroller_raspisanie_4_1_2_pt_p2_tdeg
+                name: П2 — температура
+              - entity: number.kotel_kontroller_raspisanie_4_1_2_pt_p3_nachalo
+                name: П3 — начало
+              - entity: number.kotel_kontroller_raspisanie_4_1_2_pt_p3_tdeg
+                name: П3 — температура
+              - entity: number.kotel_kontroller_raspisanie_4_1_2_pt_p4_nachalo
+                name: П4 — начало
+              - entity: number.kotel_kontroller_raspisanie_4_1_2_pt_p4_tdeg
+                name: П4 — температура
+          - type: entities
+            title: СБ–ВС
+            entities:
+              - entity: number.kotel_kontroller_raspisanie_4_1_2_sb_vs_p1_nachalo
+                name: П1 — начало
+              - entity: number.kotel_kontroller_raspisanie_4_1_2_sb_vs_p1_tdeg
+                name: П1 — температура
+              - entity: number.kotel_kontroller_raspisanie_4_1_2_sb_vs_p2_nachalo
+                name: П2 — начало
+              - entity: number.kotel_kontroller_raspisanie_4_1_2_sb_vs_p2_tdeg
+                name: П2 — температура
+              - entity: number.kotel_kontroller_raspisanie_4_1_2_sb_vs_p3_nachalo
+                name: П3 — начало
+              - entity: number.kotel_kontroller_raspisanie_4_1_2_sb_vs_p3_tdeg
+                name: П3 — температура
+              - entity: number.kotel_kontroller_raspisanie_4_1_2_sb_vs_p4_nachalo
+                name: П4 — начало
+              - entity: number.kotel_kontroller_raspisanie_4_1_2_sb_vs_p4_tdeg
+                name: П4 — температура
+  - title: Диагностика
+    path: diagnostics
+    icon: mdi:bug-outline
+    type: sections
+    max_columns: 3
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: Аварии и ошибки
+            heading_style: title
+          - type: entities
+            title: Состояние
+            entities:
+              - entity: sensor.kotel_kontroller_trevoga_po_vode
+              - entity: sensor.kotel_kontroller_avariia_shneka
+              - entity: sensor.kotel_kontroller_oshibka_datchika_t_vody
+              - entity: sensor.kotel_kontroller_oshibka_datchika_t_shneka
+              - entity: sensor.kotel_kontroller_oshibka_simistora
+              - entity: sensor.kotel_kontroller_ventiliator_vkliuchen
+          - type: entities
+            title: Климат
+            entities:
+              - entity: sensor.kotel_kontroller_klimat_vkliuchen
+                name: Климат включён
+              - entity: sensor.kotel_kontroller_klimat_datchik_vybran
+                name: Датчик выбран
+              - entity: sensor.kotel_kontroller_klimat_tselevaia_temperatura
+                name: Целевая температура
+      - type: grid
+        cards:
+          - type: heading
+            heading: Параметры
+            heading_style: title
+          - type: entities
+            title: Диагностика
+            entities:
+              - entity: sensor.kotel_kontroller_versiia_proshivki
+              - entity: sensor.kotel_kontroller_diagnostika_parametrov
+                name: Разобрано параметров
+              - type: attribute
+                entity: sensor.kotel_kontroller_diagnostika_parametrov
+                attribute: params_format
+                name: Формат params
+              - type: attribute
+                entity: sensor.kotel_kontroller_diagnostika_parametrov
+                attribute: params_raw
+                name: Строка params
+      - type: grid
+        cards:
+          - type: heading
+            heading: История
+            heading_style: title
+          - type: history-graph
+            title: Температура за 24 часа
+            hours_to_show: 24
+            entities:
+              - entity: sensor.kotel_kontroller_temperatura_vody
+                name: Вода
+              - entity: sensor.kotel_kontroller_ustavka_temperatury_max
+                name: Уставка макс.
+              - entity: sensor.kotel_kontroller_ustavka_temperatury_min
+                name: Уставка мин.
+              - entity: sensor.kotel_kontroller_klimat_temperatura_datchika
+                name: Помещение
+              - entity: sensor.kotel_kontroller_klimat_tselevaia_temperatura
+                name: Цель климата
