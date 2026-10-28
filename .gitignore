@@ -2,5 +2,16 @@ assets/
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+.venv/
+venv/
 .tmp_*/
+build/
 dist/
+AGENTS.md
+.DS_Store
+Thumbs.db
