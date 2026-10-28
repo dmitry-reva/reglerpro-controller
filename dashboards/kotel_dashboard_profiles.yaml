@@ -1,0 +1,282 @@
+# =============================================================================
+#  Дашборд «Профили котла и климата» для интеграции Kotel (ReglerPro Controller)
+#  Современный Sections-вид (Home Assistant 2024.3+). Только штатные карточки,
+#  HACS не требуется.
+#
+#  НАЗНАЧЕНИЕ
+#  Полное управление профилями настроек: сохранение, выбор, применение, откат,
+#  обновление — отдельно для котла (11 настроек) и климата (режим, цель,
+#  расписание). Старт/стоп и включение климата в профили не входят.
+#
+#  КАК ПОДКЛЮЧИТЬ
+#   1. Настройки → Панели → Добавить панель → «Новая панель с нуля».
+#   2. ⋮ → «Изменить» → ⋮ → «Raw configuration editor» → вставьте файл.
+#   3. Замените префикс kotel_kontroller на свой: карточка устройства →
+#      сущность → ⚙. В редакторе работает Ctrl+H.
+#
+#  ИДЕНТИФИКАТОРЫ (пример; у вас могут отличаться)
+#   select.kotel_kontroller_profil                    «Профиль котла»
+#   sensor.kotel_kontroller_aktivnyi_profil           «Активный профиль котла»
+#   select.kotel_kontroller_profil_klimata            «Профиль климата»
+#   sensor.kotel_kontroller_aktivnyi_profil_klimata   «Активный профиль климата»
+#   text/button (котёл):   kotel_kontroller_{imia_novogo_profilia,
+#                          sokhranit_profil, obnovit_profil,
+#                          primenit_profil, otmenit_primenenie}
+#   text/button (климат):  kotel_kontroller_{imia_novogo_profilia_klimata,
+#                          sokhranit_profil_klimata, obnovit_profil_klimata,
+#                          primenit_profil_klimata, otmenit_primenenie_klimat}
+#
+#  Экспорт, импорт, переименование и удаление профилей выполняются через
+#  «Настроить» устройства или службы kotel.* (см. вкладку «Справка»).
+# =============================================================================
+title: Профили котла и климата
+views:
+  # ---------------------------------------------------------------------------
+  # 1. Профили
+  # ---------------------------------------------------------------------------
+  - title: Профили
+    path: profiles
+    icon: mdi:content-save-cog
+    type: sections
+    max_columns: 2
+    sections:
+
+      # ---- Профиль котла ---------------------------------------------------
+      - type: grid
+        cards:
+          - type: heading
+            heading: Профиль котла
+            heading_style: title
+            icon: mdi:fire
+
+          - type: markdown
+            content: >
+              Сохраняет **11 настроек котла**: уставки max/min, температуру
+              насоса, коррекцию, время и интервал продувки, вентилятор min/max,
+              время угасания, интервалы шнека. Старт/стоп и включение климата
+              в профиль **не входят** — это защита от случайного отключения.
+
+          - type: entities
+            title: Текущее состояние
+            show_header_toggle: false
+            entities:
+              - entity: sensor.kotel_kontroller_aktivnyi_profil
+                name: Активный профиль
+              - entity: select.kotel_kontroller_profil
+                name: Выбранный профиль
+
+          - type: entities
+            title: Применение и откат
+            show_header_toggle: false
+            entities:
+              - type: tile
+                entity: button.kotel_kontroller_primenit_profil
+                name: Применить выбранный
+                icon: mdi:check-bold
+                vertical: true
+                tap_action:
+                  action: perform-action
+                  perform_action: button.press
+                  target:
+                    entity_id: button.kotel_kontroller_primenit_profil
+                  confirmation:
+                    text: Применить профиль котла к контроллеру?
+              - type: tile
+                entity: button.kotel_kontroller_otmenit_primenenie
+                name: Отменить применение
+                icon: mdi:undo
+                vertical: true
+                tap_action:
+                  action: perform-action
+                  perform_action: button.press
+                  target:
+                    entity_id: button.kotel_kontroller_otmenit_primenenie
+                  confirmation:
+                    text: Вернуть прежние настройки котла?
+
+          - type: entities
+            title: Сохранение
+            show_header_toggle: false
+            entities:
+              - entity: text.kotel_kontroller_imia_novogo_profilia
+                name: Имя нового профиля
+              - entity: button.kotel_kontroller_sokhranit_profil
+                name: Сохранить как новый
+              - entity: button.kotel_kontroller_obnovit_profil
+                name: Обновить выбранный
+
+      # ---- Профиль климата -------------------------------------------------
+      - type: grid
+        cards:
+          - type: heading
+            heading: Профиль климата
+            heading_style: title
+            icon: mdi:home-thermometer
+
+          - type: markdown
+            content: >
+              Сохраняет **режим климат-контроля, целевую температуру и
+              расписание активного режима** (7/7, 5/2 или 4/1/2); по желанию —
+              выбранный датчик. Применяется независимо от профиля котла,
+              но не включает и не выключает климат.
+
+          - type: entities
+            title: Текущее состояние
+            show_header_toggle: false
+            entities:
+              - entity: sensor.kotel_kontroller_aktivnyi_profil_klimata
+                name: Активный профиль
+              - entity: select.kotel_kontroller_profil_klimata
+                name: Выбранный профиль
+
+          - type: entities
+            title: Применение и откат
+            show_header_toggle: false
+            entities:
+              - type: tile
+                entity: button.kotel_kontroller_primenit_profil_klimata
+                name: Применить выбранный
+                icon: mdi:check-bold
+                vertical: true
+                tap_action:
+                  action: perform-action
+                  perform_action: button.press
+                  target:
+                    entity_id: button.kotel_kontroller_primenit_profil_klimata
+                  confirmation:
+                    text: Применить профиль климата к контроллеру?
+              - type: tile
+                entity: button.kotel_kontroller_otmenit_primenenie_klimat
+                name: Отменить применение
+                icon: mdi:undo
+                vertical: true
+                tap_action:
+                  action: perform-action
+                  perform_action: button.press
+                  target:
+                    entity_id: button.kotel_kontroller_otmenit_primenenie_klimat
+                  confirmation:
+                    text: Вернуть прежние настройки климата?
+
+          - type: entities
+            title: Сохранение
+            show_header_toggle: false
+            entities:
+              - entity: text.kotel_kontroller_imia_novogo_profilia_klimata
+                name: Имя нового профиля
+              - entity: button.kotel_kontroller_sokhranit_profil_klimata
+                name: Сохранить как новый
+              - entity: button.kotel_kontroller_obnovit_profil_klimata
+                name: Обновить выбранный
+
+  # ---------------------------------------------------------------------------
+  # 2. Справка: службы, экспорт/импорт, события
+  # ---------------------------------------------------------------------------
+  - title: Справка
+    path: help
+    icon: mdi:book-information-variant
+    type: sections
+    max_columns: 3
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: Службы
+            heading_style: title
+            icon: mdi:script-text
+
+          - type: markdown
+            content: >
+              Все службы принимают `kind` (`boiler` / `climate`); тип профиля
+              по имени определяется автоматически, если имя есть только в одном
+              списке.
+
+              | Служба | Назначение |
+              |---|---|
+              | `kotel.save_profile` | сохранить профиль |
+              | `kotel.apply_profile` | применить профиль |
+              | `kotel.undo_apply` | отменить последнее применение |
+              | `kotel.rename_profile` | переименовать |
+              | `kotel.delete_profile` | удалить |
+              | `kotel.list_profiles` | список профилей |
+              | `kotel.export_profiles` | экспорт в файл |
+              | `kotel.import_profiles` | импорт из файла |
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Примеры
+            heading_style: title
+            icon: mdi:code-tags
+
+          - type: markdown
+            content: >
+              **Сохранить профиль климата:**
+              ```yaml
+              action: kotel.save_profile
+              data:
+                name: Расписание 7/7 — солнечные дни
+                kind: climate
+              ```
+
+              **Применить профиль котла:**
+              ```yaml
+              action: kotel.apply_profile
+              data:
+                name: Отпуск
+                kind: boiler
+              ```
+
+              **Откатить климат:**
+              ```yaml
+              action: kotel.undo_apply
+              data:
+                kind: climate
+              ```
+
+              **Посмотреть, что изменится (без записи):**
+              ```yaml
+              action: kotel.apply_profile
+              data:
+                name: Расписание 7/7 — пасмурные дни
+                dry_run: true
+              response_variable: plan
+              ```
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Экспорт, импорт, события
+            heading_style: title
+            icon: mdi:file-transfer
+
+          - type: markdown
+            content: >
+              **Экспорт и импорт** выполняются через **Настройки → Устройства и
+              службы → Kotel → Настроить** (файлы в `/config/kotel_profiles/`)
+              или службами:
+              ```yaml
+              action: kotel.export_profiles
+              data:
+                kind: climate
+              response_variable: exported
+              ```
+
+              **Переключение по расписанию и событиям** — автоматизации со
+              службой `kotel.apply_profile` (примеры в docs/PROFILES.md).
+
+              **События:** `kotel_profile_saved` и `kotel_profile_applied`
+              (данные: `device_id`, `kind`, `profile`, `ok`, `applied`,
+              `failed`).
+
+          - type: markdown
+            content: |
+              **Памятка безопасности**
+
+              * Применение записывает только разницу; значения вне допустимых
+                диапазонов пропускаются, перед записью создаётся откат.
+              * Кнопки «Применить» и «Отменить» в этом дашборде требуют
+                подтверждения — случайное нажатие не изменит котёл.
+              * Применение не выполняется, если контроллер не в сети.
+              * Файлы экспорта, положенные в `/local/kotel_profiles/`,
+                доступны без авторизации — после скачивания удаляйте их.
