@@ -65,6 +65,8 @@ views:
               - entity: select.kotel_kontroller_profil
                 name: Выбранный профиль
 
+<<<<<<< ours
+<<<<<<< ours
           - type: entities
             title: Применение и откат
             show_header_toggle: false
@@ -93,6 +95,43 @@ views:
                     entity_id: button.kotel_kontroller_otmenit_primenenie
                   confirmation:
                     text: Вернуть прежние настройки котла?
+=======
+=======
+>>>>>>> theirs
+          - type: heading
+            heading: Применение и откат
+            heading_style: subtitle
+            icon: mdi:check-bold
+
+          - type: tile
+            entity: button.kotel_kontroller_primenit_profil
+            name: Применить выбранный
+            icon: mdi:check-bold
+            vertical: true
+            tap_action:
+              action: perform-action
+              perform_action: button.press
+              target:
+                entity_id: button.kotel_kontroller_primenit_profil
+              confirmation:
+                text: Применить профиль котла к контроллеру?
+
+          - type: tile
+            entity: button.kotel_kontroller_otmenit_primenenie
+            name: Отменить применение
+            icon: mdi:undo
+            vertical: true
+            tap_action:
+              action: perform-action
+              perform_action: button.press
+              target:
+                entity_id: button.kotel_kontroller_otmenit_primenenie
+              confirmation:
+                text: Вернуть прежние настройки котла?
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
 
           - type: entities
             title: Сохранение
@@ -129,6 +168,8 @@ views:
               - entity: select.kotel_kontroller_profil_klimata
                 name: Выбранный профиль
 
+<<<<<<< ours
+<<<<<<< ours
           - type: entities
             title: Применение и откат
             show_header_toggle: false
@@ -157,6 +198,43 @@ views:
                     entity_id: button.kotel_kontroller_otmenit_primenenie_klimat
                   confirmation:
                     text: Вернуть прежние настройки климата?
+=======
+=======
+>>>>>>> theirs
+          - type: heading
+            heading: Применение и откат
+            heading_style: subtitle
+            icon: mdi:check-bold
+
+          - type: tile
+            entity: button.kotel_kontroller_primenit_profil_klimata
+            name: Применить выбранный
+            icon: mdi:check-bold
+            vertical: true
+            tap_action:
+              action: perform-action
+              perform_action: button.press
+              target:
+                entity_id: button.kotel_kontroller_primenit_profil_klimata
+              confirmation:
+                text: Применить профиль климата к контроллеру?
+
+          - type: tile
+            entity: button.kotel_kontroller_otmenit_primenenie_klimat
+            name: Отменить применение
+            icon: mdi:undo
+            vertical: true
+            tap_action:
+              action: perform-action
+              perform_action: button.press
+              target:
+                entity_id: button.kotel_kontroller_otmenit_primenenie_klimat
+              confirmation:
+                text: Вернуть прежние настройки климата?
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
 
           - type: entities
             title: Сохранение
