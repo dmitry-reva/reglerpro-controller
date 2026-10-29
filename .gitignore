@@ -9,9 +9,9 @@ __pycache__/
 htmlcov/
 .venv/
 venv/
+.vscode/settings.json
 .tmp_*/
 build/
 dist/
-AGENTS.md
 .DS_Store
 Thumbs.db
