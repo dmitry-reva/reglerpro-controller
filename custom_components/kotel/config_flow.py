@@ -1,11 +1,20 @@
 """Config flow для интеграции Kotel."""
 
+import os
+import re
+import shutil
+
 import voluptuous as vol  # pyright: ignore[reportMissingImports]
 from homeassistant import config_entries  # pyright: ignore[reportMissingImports]
+from homeassistant.components.file_upload import process_uploaded_file
 from homeassistant.core import callback  # pyright: ignore[reportMissingImports]
+from homeassistant.exceptions import HomeAssistantError  # pyright: ignore[reportMissingImports]
 
 from homeassistant.helpers import config_validation as cv  # pyright: ignore[reportMissingImports]
-from homeassistant.exceptions import HomeAssistantError  # pyright: ignore[reportMissingImports]
+from homeassistant.helpers.selector import (
+    FileSelector,
+    FileSelectorConfig,
+)
 
 from .const import CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL, DEFAULT_URL, DOMAIN
 from .profiles import EXPORT_DIR, KIND_LABELS
@@ -17,6 +26,41 @@ STEP_USER_DATA_SCHEMA = vol.Schema({
     vol.Required("password"): str,
     vol.Optional("home_id", default=""): str,
 })
+
+
+def _sanitize_filename(name: str) -> str:
+    """Оставить в имени только символы, допустимые для файлов экспорта."""
+    clean = re.sub(r"[^\w.\- ]+", "_", name).strip(" .")
+    if not clean:
+        clean = "kotel_profiles"
+    return clean[:80]
+
+
+def _save_uploaded_json(hass, file_id: str, directory: str) -> str:
+    """Сохранить загруженный файл в каталог kotel_profiles; вернуть имя файла.
+
+    Работает в потоке исполнителя: process_uploaded_file требует этого.
+    """
+    os.makedirs(directory, exist_ok=True)
+    with process_uploaded_file(hass, file_id) as file_path:
+        ext = file_path.suffix if file_path.suffix.lower() == ".json" else ".json"
+        name = f"{_sanitize_filename(file_path.stem)}{ext}"
+        dest = os.path.join(directory, name)
+        counter = 2
+        while os.path.exists(dest):
+            dest = os.path.join(directory, f"{_sanitize_filename(file_path.stem)}_{counter}{ext}")
+            counter += 1
+        shutil.copy2(file_path, dest)
+        return os.path.basename(dest)
+
+
+def _remove_json_file(directory: str, filename: str) -> None:
+    """Удалить файл из каталога kotel_profiles (игнорируя отсутствие)."""
+    path = os.path.join(directory, os.path.basename(filename))
+    try:
+        os.remove(path)
+    except FileNotFoundError:
+        pass
 
 
 class KotelConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -87,7 +131,7 @@ class KotelOptionsFlow(config_entries.OptionsFlow):
     async def async_step_init(self, user_input=None):
         return self.async_show_menu(
             step_id="init",
-            menu_options=["settings", "export", "import_file", "delete"],
+            menu_options=["settings", "export", "import_file", "upload", "delete"],
         )
 
     # --- параметры -----------------------------------------------------------
@@ -119,12 +163,13 @@ class KotelOptionsFlow(config_entries.OptionsFlow):
             except HomeAssistantError:
                 errors["base"] = "export_failed"
             else:
+                url = result["url"]
                 return self.async_abort(
                     reason="export_done",
                     description_placeholders={
                         "count": str(result["count"]),
                         "path": result["path"],
-                        "url": result["url"] or "—",
+                        "url": (f"[{url}]({url})" if url else "—"),
                     },
                 )
         return self.async_show_form(
@@ -160,6 +205,48 @@ class KotelOptionsFlow(config_entries.OptionsFlow):
         return self.async_show_form(
             step_id="import_file",
             data_schema=vol.Schema({vol.Required("file"): vol.In(files)}),
+            errors=errors,
+            description_placeholders=placeholders,
+        )
+
+    # --- загрузка файла профилей извне ----------------------------------------
+    async def async_step_upload(self, user_input=None):
+        """Загрузить файл профилей, хранящийся вне Home Assistant.
+
+        Файл копируется в каталог kotel_profiles и дальше импортируется обычным
+        путём (выбор профилей и контроллера), как после выбора существующего файла.
+        """
+        errors = {}
+        placeholders = {"dir": EXPORT_DIR, "error": ""}
+        if user_input is not None:
+            filename = None
+            try:
+                filename = await self.hass.async_add_executor_job(
+                    _save_uploaded_json, self.hass, user_input["file"],
+                    self.hass.config.path(EXPORT_DIR))
+                profiles = await self._manager.async_read_export_file(filename)
+            except HomeAssistantError as err:
+                errors["base"] = "invalid_file"
+                placeholders["error"] = str(err)
+            except (ValueError, OSError) as err:
+                errors["base"] = "upload_failed"
+                placeholders["error"] = str(err)
+            else:
+                if filename:
+                    self._import_file = filename
+                    self._import_choices = {
+                        f"{p['kind']}|{p['name']}": f"{KIND_LABELS[p['kind']]} · {p['name']}"
+                        for p in profiles
+                    }
+                    return await self.async_step_import_select()
+            if filename:
+                await self.hass.async_add_executor_job(
+                    _remove_json_file, self.hass.config.path(EXPORT_DIR), filename)
+        return self.async_show_form(
+            step_id="upload",
+            data_schema=vol.Schema({
+                vol.Required("file"): FileSelector(FileSelectorConfig(accept=".json")),
+            }),
             errors=errors,
             description_placeholders=placeholders,
         )

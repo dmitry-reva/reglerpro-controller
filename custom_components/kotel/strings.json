@@ -26,6 +26,7 @@
           "settings": "Polling and settings",
           "export": "Export profiles to a file",
           "import_file": "Import profiles from a file",
+          "upload": "Upload a profiles file",
           "delete": "Delete profiles"
         }
       },
@@ -50,6 +51,13 @@
           "file": "File"
         }
       },
+      "upload": {
+        "title": "Import: upload a file",
+        "description": "Upload a profiles file stored outside Home Assistant. It will be copied to the {dir} folder inside the configuration folder and then imported. {error}",
+        "data": {
+          "file": "Profiles file (.json)"
+        }
+      },
       "import_select": {
         "title": "Import: choose profiles",
         "data": {
@@ -68,6 +76,7 @@
     },
     "error": {
       "invalid_file": "The file could not be read",
+      "upload_failed": "The file could not be uploaded",
       "export_failed": "Export failed"
     },
     "abort": {
