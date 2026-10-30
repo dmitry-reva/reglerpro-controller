@@ -123,6 +123,7 @@ class KotelOptionsFlow(config_entries.OptionsFlow):
         super().__init__()
         self._import_file = None
         self._import_choices = {}
+        self._new_temperature_sensor_id = None
 
     @property
     def _manager(self):
@@ -131,7 +132,14 @@ class KotelOptionsFlow(config_entries.OptionsFlow):
     async def async_step_init(self, user_input=None):
         return self.async_show_menu(
             step_id="init",
-            menu_options=["settings", "export", "import_file", "upload", "delete"],
+            menu_options=[
+                "add_temperature_sensor",
+                "settings",
+                "export",
+                "import_file",
+                "upload",
+                "delete",
+            ],
         )
 
     # --- параметры -----------------------------------------------------------
@@ -147,6 +155,57 @@ class KotelOptionsFlow(config_entries.OptionsFlow):
                     default=self.config_entry.options.get(
                         CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
                 ): vol.All(int, vol.Range(min=10, max=300)),
+            }),
+        )
+
+    async def async_step_add_temperature_sensor(self, user_input=None):
+        errors = {}
+        placeholders = {"error": ""}
+        configured_home_id = (self.config_entry.data.get("home_id") or "").strip()
+
+        if user_input is not None:
+            home_id = configured_home_id or user_input.get("home_id", "").strip()
+            if not home_id:
+                errors["base"] = "home_id_required"
+            elif not user_input["confirm"]:
+                errors["base"] = "confirmation_required"
+            else:
+                api = self.hass.data[DOMAIN][self.config_entry.entry_id]["api"]
+                try:
+                    sensor_id = await api.add_temperature_sensor(home_id)
+                except KotelApiError as err:
+                    errors["base"] = "add_sensor_failed"
+                    placeholders["error"] = str(err)
+                else:
+                    self._new_temperature_sensor_id = sensor_id
+                    return await self.async_step_add_temperature_sensor_result()
+
+        schema = {}
+        if not configured_home_id:
+            schema[vol.Required("home_id")] = str
+        schema[vol.Required("confirm", default=False)] = bool
+        return self.async_show_form(
+            step_id="add_temperature_sensor",
+            data_schema=vol.Schema(schema),
+            errors=errors,
+            description_placeholders=placeholders,
+        )
+
+    async def async_step_add_temperature_sensor_result(self, user_input=None):
+        if user_input is not None:
+            self._new_temperature_sensor_id = None
+            return await self.async_step_init()
+
+        if self._new_temperature_sensor_id is None:
+            return await self.async_step_init()
+
+        return self.async_show_form(
+            step_id="add_temperature_sensor_result",
+            data_schema=vol.Schema({
+                vol.Required(
+                    "sensor_id",
+                    default=self._new_temperature_sensor_id,
+                ): str,
             }),
         )
 

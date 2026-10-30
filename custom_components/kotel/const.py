@@ -17,6 +17,7 @@ DEVICE_TYPE_DT = "dt"
 ACTION_GET_ALL_DEV = "get_all_dev"
 ACTION_GET_BIG_CONTR = "get_big_contr"
 ACTION_GET_BIG_DT = "get_big_dt"
+ACTION_ADD_DEVICE = "add_device"
 
 # Состояния работы контроллера
 SOST_RAB_STOPPED = 0

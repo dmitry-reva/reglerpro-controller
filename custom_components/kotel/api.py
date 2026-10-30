@@ -13,6 +13,7 @@ from .const import (
     ACTION_CLIMATE_ON_OFF,
     ACTION_CLIMATE_RANGE,
     ACTION_CLIMATE_SELECT_SENSOR,
+    ACTION_ADD_DEVICE,
     API_PATH,
 )
 
@@ -61,7 +62,7 @@ class KotelApiClient:
             self._owns_session = True
         return self._session
 
-    async def _post(self, payload: dict) -> dict | list:
+    async def _post(self, payload: dict) -> object:
         """Отправка POST-запроса к taptop.php (аналог post_action из functions.js)."""
         url = f"{self._base_url}{API_PATH}"
         session = await self._get_session()
@@ -84,6 +85,32 @@ class KotelApiClient:
             raise
         except (aiohttp.ClientError, asyncio.TimeoutError, ValueError) as err:
             raise KotelApiError(f"Ошибка соединения: {err}") from err
+
+    async def add_temperature_sensor(self, home_id: str | None = None) -> str:
+        """Получить новый ID датчика температуры для настройки его Wi-Fi."""
+        target_home_id = (home_id or self._home_id).strip()
+        if not target_home_id:
+            raise KotelApiError("Для регистрации датчика требуется ID дома")
+
+        data = await self._post({
+            "climat_war1": "",
+            "action": ACTION_ADD_DEVICE,
+            "range": 0,
+            "userId": "",
+            "id_name": "",
+            "login": self._login,
+            "password": self._password,
+            "action_value1": target_home_id,
+            "action_value2": "",
+        })
+        if isinstance(data, bool) or not isinstance(data, (str, int)):
+            raise KotelApiError(
+                "Некорректный ответ add_device: ожидался текстовый или числовой ID датчика"
+            )
+        sensor_id = str(data).strip()
+        if not sensor_id:
+            raise KotelApiError("Некорректный ответ add_device: ID датчика пуст")
+        return sensor_id
 
     async def get_all_devices(self) -> list:
         """Получить список всех устройств (action=get_all_dev).
@@ -165,7 +192,7 @@ class KotelApiClient:
         device_id: str,
         value: str | int | float = "",
         range_value: int | float = 0,
-    ) -> dict | list:
+    ) -> object:
         """Запрос климат-контроля.
 
         В отличие от send_command, значение передаётся в поле `climat_war1`,

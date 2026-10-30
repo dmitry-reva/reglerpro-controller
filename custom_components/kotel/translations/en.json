@@ -24,6 +24,7 @@
         "title": "ReglerPro options",
         "menu_options": {
           "settings": "Polling and settings",
+          "add_temperature_sensor": "Register a temperature sensor",
           "export": "Export profiles to a file",
           "import_file": "Import profiles from a file",
           "upload": "Upload a profiles file",
@@ -34,6 +35,21 @@
         "title": "Settings",
         "data": {
           "scan_interval": "Polling interval, s"
+        }
+      },
+      "add_temperature_sensor": {
+        "title": "Register a temperature sensor",
+        "description": "This creates a sensor ID in the configured ReglerPro home. If no home ID was saved with the integration, enter the target home ID below. Then configure the physical sensor's Wi-Fi using this ID. Connect to its Kotel_dt Wi-Fi network, open 192.168.1.1, select your home Wi-Fi, enter its password and the generated ID, then save. {error}",
+        "data": {
+          "home_id": "ReglerPro home ID",
+          "confirm": "I am ready to configure the physical sensor"
+        }
+      },
+      "add_temperature_sensor_result": {
+        "title": "Sensor registered",
+        "description": "Copy this exact sensor ID into the ID field on the physical sensor's Wi-Fi setup page. This is the device ID returned by ReglerPro, not the home ID.",
+        "data": {
+          "sensor_id": "Sensor ID for Wi-Fi setup"
         }
       },
       "export": {
@@ -77,7 +93,10 @@
     "error": {
       "invalid_file": "The file could not be read",
       "upload_failed": "The file could not be uploaded",
-      "export_failed": "Export failed"
+      "export_failed": "Export failed",
+      "home_id_required": "Enter the ReglerPro home ID where the sensor should be registered",
+      "confirmation_required": "Confirm that you are ready to configure the physical sensor",
+      "add_sensor_failed": "Could not register the sensor: {error}"
     },
     "abort": {
       "no_profiles": "There are no saved profiles.",
