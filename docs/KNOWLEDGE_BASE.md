@@ -1,3 +1,11 @@
-# [База знаний по эксплуатации котлов «Энергия Авто» и контроллеров ReglerPro](https://github.com/dmitry-reva/reglerpro-controller/wiki/%D0%91%D0%B0%D0%B7%D0%B0-%D0%B7%D0%BD%D0%B0%D0%BD%D0%B8%D0%B9-%D0%BF%D0%BE-%D1%8D%D0%BA%D1%81%D0%BF%D0%BB%D1%83%D0%B0%D1%82%D0%B0%D1%86%D0%B8%D0%B8-%D0%BA%D0%BE%D1%82%D0%BB%D0%BE%D0%B2-%C2%AB%D0%AD%D0%BD%D0%B5%D1%80%D0%B3%D0%B8%D1%8F-%D0%90%D0%B2%D1%82%D0%BE%C2%BB-%D0%B8-%D0%BA%D0%BE%D0%BD%D1%82%D1%80%D0%BE%D0%BB%D0%BB%D0%B5%D1%80%D0%BE%D0%B2-ReglerPro)
+# Эксплуатация 
 
-Страница перенесена в wiki.
+Страницы документа перенесены в wiki.
+
+## [База знаний по эксплуатации котлов «Энергия Авто» и контроллеров ReglerPro](https://github.com/dmitry-reva/reglerpro-controller/wiki/KNOWLEDGE-BASE)
+
+## Прошивка контроллеров
+
+### [Прошивка и снятие дампа ESP8285 (ESP8285mod)](https://github.com/dmitry-reva/reglerpro-controller/wiki/esp8285%E2%80%90flash%E2%80%90guide)
+
+
