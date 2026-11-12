@@ -2,18 +2,21 @@
 #
 # Показывает только названия и значения настроек котла. Нажатие на название открывает окно
 # сущности, где значение меняется ползунком; запись уходит в контроллер сразу.
-# Состав: 11 настроек (number), сгруппированы по назначению. Расписание климата,
-# профили и старт/стоп сюда не входят.
+# Состав: 11 настроек (number), сгруппированы по назначению, и 3 параметра шнека «только
+# чтение» (sensor): для них в интеграции нет полей записи. Расписание климата, профили
+# и старт/стоп сюда не входят.
 #
 # Применение: Настройки → Панели → Добавить панель → «Новая панель с нуля»; затем
 # ⋮ → Raw configuration editor и вставьте содержимое файла.
 #
 # Идентификаторы сущностей зависят от названия устройства и фиксируются при создании
-# сущности, поэтому у вас они могут отличаться. 9 из 11 совпадают с идентификаторами из
-# вашего прежнего дашборда. Проверьте два, выведенных по прежним названиям
-# («Шнек интервал (нагрев)» и «Шнек интервал (угасание)»):
+# сущности, поэтому у вас они могут отличаться. Идентификаторы из вашего прежнего
+# дашборда подтверждены, остальные выведены по тому же правилу из названий. Проверьте их:
 #   number.kotel_kontroller_shnek_interval_nagrev
 #   number.kotel_kontroller_shnek_interval_ugasanie
+#   sensor.kotel_kontroller_shnek_rabota_nagrev
+#   sensor.kotel_kontroller_shnek_rabota_podderzhanie
+#   sensor.kotel_kontroller_shnek_interval_avtoreversa
 # Жёлтый знак на строке означает, что сущности с таким ID нет: поправьте entity.
 title: Настройки котла
 views:
@@ -124,5 +127,31 @@ views:
                 entity: number.kotel_kontroller_shnek_interval_ugasanie
                 name: 'Шнек: интервал (поддержание)'
                 icon: mdi:cog
+                tap_action:
+                  action: more-info
+          - type: heading
+            heading: Только чтение
+            heading_style: subtitle
+            icon: mdi:eye-outline
+          - type: entities
+            show_header_toggle: false
+            state_color: false
+            entities:
+              - type: simple-entity
+                entity: sensor.kotel_kontroller_shnek_rabota_nagrev
+                name: 'Шнек: работа (нагрев)'
+                icon: mdi:timer-outline
+                tap_action:
+                  action: more-info
+              - type: simple-entity
+                entity: sensor.kotel_kontroller_shnek_rabota_podderzhanie
+                name: 'Шнек: работа (поддержание)'
+                icon: mdi:timer-outline
+                tap_action:
+                  action: more-info
+              - type: simple-entity
+                entity: sensor.kotel_kontroller_shnek_interval_avtoreversa
+                name: 'Шнек: интервал автореверса'
+                icon: mdi:swap-horizontal
                 tap_action:
                   action: more-info
