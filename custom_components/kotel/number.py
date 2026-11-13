@@ -48,6 +48,12 @@ NUMBER_PARAMS = (
      UnitOfTime.SECONDS, EntityCategory.CONFIG),
     ("shn_uga", "auger_interval_maintenance", 1, 900, 1,
      UnitOfTime.SECONDS, EntityCategory.CONFIG),
+    ("shn_roz_vkl", "auger_run_heating", 1, 300, 1,
+     UnitOfTime.SECONDS, EntityCategory.CONFIG),
+    ("shn_uga_vkl", "auger_run_maintenance", 1, 300, 1,
+     UnitOfTime.SECONDS, EntityCategory.CONFIG),
+    ("shn_rev_auto_i", "auger_reverse_interval", 1, 600, 1,
+     None, EntityCategory.CONFIG),
 )
 
 
@@ -132,7 +138,7 @@ class KotelScheduleNumber(KotelNumberEntity):
         else:
             min_val, max_val, step, unit = (
                 CLIMATE_TEMP_MIN, CLIMATE_TEMP_MAX, CLIMATE_TEMP_STEP,
-                UnitOfTemperature.CELSIUS,
+UnitOfTemperature.CELSIUS,
             )
         super().__init__(
             coordinator, dev_id, entry_id, key,

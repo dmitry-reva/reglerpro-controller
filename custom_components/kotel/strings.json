@@ -308,6 +308,15 @@
       "auger_interval_maintenance": {
         "name": "Auger: interval (maintenance)"
       },
+      "auger_run_heating": {
+        "name": "Auger: run time (heating)"
+      },
+      "auger_run_maintenance": {
+        "name": "Auger: run time (maintenance)"
+      },
+      "auger_reverse_interval": {
+        "name": "Auger: auto-reverse interval"
+      },
       "schedule_m3_p1_time": {
         "name": "Schedule 7/7 (Mon–Sun): P1 start"
       },

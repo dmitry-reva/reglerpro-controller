@@ -1,30 +1,3 @@
-# =============================================================================
-#  Дашборд «Котёл» для интеграции Kotel (ReglerPro Controller)
-#  Только штатные карточки Home Assistant — HACS-расширения не нужны.
-#
-#  КАК ПОДКЛЮЧИТЬ
-#   1. Скопируйте www/kotel/controller.png в /config/www/kotel/controller.png
-#      (если папки www не было — перезапустите Home Assistant).
-#   2. Настройки → Панели → Добавить панель → «Новая панель с нуля».
-#   3. ⋮ → «Изменить» → ⋮ → «Raw configuration editor» и вставьте этот файл.
-#   4. Замените ID сущностей (см. таблицу ниже) на свои:
-#      Настройки → Устройства и службы → Kotel → устройство → сущность → ⚙.
-#      В редакторе работает поиск с заменой: Ctrl+H.
-#
-#  ID СУЩНОСТЕЙ (пример; у вас могут отличаться)
-#   sensor.kotel_kontroller_temperatura_vody          температура воды
-#   sensor.kotel_kontroller_ustavka_temperatury_max   уставка max
-#   sensor.kotel_kontroller_ustavka_temperatury_min   уставка min
-#   sensor.kotel_kontroller_sostoianie_raboty                состояние работы
-#   sensor.kotel_kontroller_klimat_kontrol            климат: нагрев/охлаждение
-#   sensor.kotel_kontroller_status_podkliucheniia     online / offline
-#   sensor.kotel_kontroller_ventiliator_vkliuchen     вентилятор: да / нет
-#   sensor.kotel_kontroller_klimat_vkliuchen          климат включён: да / нет
-#   sensor.kotel_kontroller_trevoga_po_vode           аварии и ошибки: да / нет
-#   switch.kotel_kontroller_start_stop                старт/стоп
-#   number.kotel_kontroller_*                         настройки (ползунки)
-#  Замените префикс kotel_kontroller на свой: карточка устройства → сущность → ⚙.
-# =============================================================================
 title: Котёл
 views:
   - title: Обзор
@@ -383,8 +356,8 @@ views:
                 name: Помещение
               - entity: sensor.kotel_kontroller_klimat_tselevaia_temperatura
                 name: Цель климата
-            title: Температура за 8 чаов
-            hours_to_show: 8
+            hours_to_show: 4
+            show_names: false
       - type: grid
         cards:
           - type: heading
@@ -428,6 +401,22 @@ views:
               content: |
                 ## ⚠️ Неисправность котла
                 Проверьте аварии и ошибки в разделе **Диагностика**.
+          - type: gauge
+            entity: sensor.kotel_kontroller_klimat_temperatura_datchika
+            min: 10
+            max: 50
+            needle: true
+            segments:
+              - from: 10
+                color: '#4fc3f7'
+              - from: 22
+                color: '#66bb6a'
+              - from: 26
+                color: '#ffa726'
+              - from: 30
+                color: '#ef5350'
+            name:
+              type: entity
           - type: tile
             entity: sensor.kotel_kontroller_temperatura_vody
             name: Температура воды
@@ -640,73 +629,6 @@ views:
                 name: П4 — начало
               - entity: number.kotel_kontroller_raspisanie_4_1_2_sb_vs_p4_tdeg
                 name: П4 — температура
-  - title: Диагностика
-    path: diagnostics
-    icon: mdi:bug-outline
-    type: sections
-    max_columns: 3
-    sections:
-      - type: grid
-        cards:
-          - type: heading
-            heading: История
-            heading_style: title
-          - type: history-graph
-            title: Температура за 24 часа
-            hours_to_show: 24
-            entities:
-              - entity: sensor.kotel_kontroller_temperatura_vody
-                name: Вода
-              - entity: sensor.kotel_kontroller_ustavka_temperatury_max
-                name: Уставка макс.
-              - entity: sensor.kotel_kontroller_ustavka_temperatury_min
-                name: Уставка мин.
-              - entity: sensor.kotel_kontroller_klimat_temperatura_datchika
-                name: Помещение
-              - entity: sensor.kotel_kontroller_klimat_tselevaia_temperatura
-                name: Цель климата
-      - type: grid
-        cards:
-          - type: heading
-            heading: Аварии и ошибки
-            heading_style: title
-          - type: entities
-            title: Состояние
-            entities:
-              - entity: sensor.kotel_kontroller_trevoga_po_vode
-              - entity: sensor.kotel_kontroller_avariia_shneka
-              - entity: sensor.kotel_kontroller_oshibka_datchika_t_vody
-              - entity: sensor.kotel_kontroller_oshibka_datchika_t_shneka
-              - entity: sensor.kotel_kontroller_oshibka_simistora
-              - entity: sensor.kotel_kontroller_ventiliator_vkliuchen
-          - type: entities
-            title: Климат
-            entities:
-              - entity: sensor.kotel_kontroller_klimat_vkliuchen
-                name: Климат включён
-              - entity: sensor.kotel_kontroller_klimat_datchik_vybran
-                name: Датчик выбран
-              - entity: sensor.kotel_kontroller_klimat_tselevaia_temperatura
-                name: Целевая температура
-      - type: grid
-        cards:
-          - type: heading
-            heading: Параметры
-            heading_style: title
-          - type: entities
-            title: Диагностика
-            entities:
-              - entity: sensor.kotel_kontroller_versiia_proshivki
-              - entity: sensor.kotel_kontroller_diagnostika_parametrov
-                name: Разобрано параметров
-              - type: attribute
-                entity: sensor.kotel_kontroller_diagnostika_parametrov
-                attribute: params_format
-                name: Формат params
-              - type: attribute
-                entity: sensor.kotel_kontroller_diagnostika_parametrov
-                attribute: params_raw
-                name: Строка params
   - title: Профили
     path: profiles
     icon: mdi:content-save-cog
@@ -829,6 +751,176 @@ views:
                 name: Сохранить как новый
               - entity: button.kotel_kontroller_obnovit_profil_klimata
                 name: Обновить выбранный
+  - title: Настройки
+    path: boiler-settings
+    icon: mdi:tune
+    type: sections
+    max_columns: 3
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: Температуры
+            heading_style: subtitle
+            icon: mdi:thermometer
+          - type: entities
+            show_header_toggle: false
+            state_color: false
+            entities:
+              - type: simple-entity
+                entity: number.kotel_kontroller_ustavka_temperatury_max
+                name: Уставка (макс.)
+                icon: mdi:thermometer-high
+                tap_action:
+                  action: more-info
+              - type: simple-entity
+                entity: number.kotel_kontroller_ustavka_temperatury_min
+                name: Уставка (мин.)
+                icon: mdi:thermometer-low
+                tap_action:
+                  action: more-info
+              - type: simple-entity
+                entity: number.kotel_kontroller_temperatura_nasosa
+                name: Температура насоса
+                icon: mdi:water-pump
+                tap_action:
+                  action: more-info
+              - type: simple-entity
+                entity: number.kotel_kontroller_korrektsiia_temperatury
+                name: Коррекция температуры
+                icon: mdi:thermometer-plus
+                tap_action:
+                  action: more-info
+      - type: grid
+        cards:
+          - type: heading
+            heading: Вентилятор и продувка
+            heading_style: subtitle
+            icon: mdi:fan
+          - type: entities
+            show_header_toggle: false
+            state_color: false
+            entities:
+              - type: simple-entity
+                entity: number.kotel_kontroller_ventiliator_min
+                name: Вентилятор (мин.)
+                icon: mdi:fan
+                tap_action:
+                  action: more-info
+              - type: simple-entity
+                entity: number.kotel_kontroller_ventiliator_max
+                name: Вентилятор (макс.)
+                icon: mdi:fan
+                tap_action:
+                  action: more-info
+              - type: simple-entity
+                entity: number.kotel_kontroller_vremia_produvki
+                name: Время продувки
+                icon: mdi:timer-outline
+                tap_action:
+                  action: more-info
+              - type: simple-entity
+                entity: number.kotel_kontroller_interval_produvki
+                name: Интервал продувки
+                icon: mdi:timer-sand
+                tap_action:
+                  action: more-info
+      - type: grid
+        cards:
+          - type: heading
+            heading: Угасание и шнек
+            heading_style: subtitle
+            icon: mdi:fire-off
+          - type: entities
+            show_header_toggle: false
+            state_color: false
+            entities:
+              - type: simple-entity
+                entity: number.kotel_kontroller_vremia_ugasaniia
+                name: Время угасания
+                icon: mdi:fire-off
+                tap_action:
+                  action: more-info
+              - type: simple-entity
+                entity: number.kotel_kontroller_shnek_interval_nagrev
+                name: 'Шнек: интервал (нагрев)'
+                icon: mdi:cog
+                tap_action:
+                  action: more-info
+              - type: simple-entity
+                entity: number.kotel_kontroller_shnek_interval_ugasanie
+                name: 'Шнек: интервал (поддержание)'
+                icon: mdi:cog
+                tap_action:
+                  action: more-info
+    header: {}
+  - title: Диагностика
+    path: diagnostics
+    icon: mdi:bug-outline
+    type: sections
+    max_columns: 3
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: История
+            heading_style: title
+          - type: history-graph
+            title: Температура за 24 часа
+            hours_to_show: 24
+            entities:
+              - entity: sensor.kotel_kontroller_temperatura_vody
+                name: Вода
+              - entity: sensor.kotel_kontroller_ustavka_temperatury_max
+                name: Уставка макс.
+              - entity: sensor.kotel_kontroller_ustavka_temperatury_min
+                name: Уставка мин.
+              - entity: sensor.kotel_kontroller_klimat_temperatura_datchika
+                name: Помещение
+              - entity: sensor.kotel_kontroller_klimat_tselevaia_temperatura
+                name: Цель климата
+      - type: grid
+        cards:
+          - type: heading
+            heading: Аварии и ошибки
+            heading_style: title
+          - type: entities
+            title: Состояние
+            entities:
+              - entity: sensor.kotel_kontroller_trevoga_po_vode
+              - entity: sensor.kotel_kontroller_avariia_shneka
+              - entity: sensor.kotel_kontroller_oshibka_datchika_t_vody
+              - entity: sensor.kotel_kontroller_oshibka_datchika_t_shneka
+              - entity: sensor.kotel_kontroller_oshibka_simistora
+              - entity: sensor.kotel_kontroller_ventiliator_vkliuchen
+          - type: entities
+            title: Климат
+            entities:
+              - entity: sensor.kotel_kontroller_klimat_vkliuchen
+                name: Климат включён
+              - entity: sensor.kotel_kontroller_klimat_datchik_vybran
+                name: Датчик выбран
+              - entity: sensor.kotel_kontroller_klimat_tselevaia_temperatura
+                name: Целевая температура
+      - type: grid
+        cards:
+          - type: heading
+            heading: Параметры
+            heading_style: title
+          - type: entities
+            title: Диагностика
+            entities:
+              - entity: sensor.kotel_kontroller_versiia_proshivki
+              - entity: sensor.kotel_kontroller_diagnostika_parametrov
+                name: Разобрано параметров
+              - type: attribute
+                entity: sensor.kotel_kontroller_diagnostika_parametrov
+                attribute: params_format
+                name: Формат params
+              - type: attribute
+                entity: sensor.kotel_kontroller_diagnostika_parametrov
+                attribute: params_raw
+                name: Строка params
   - title: Справка
     path: help
     icon: mdi:book-information-variant

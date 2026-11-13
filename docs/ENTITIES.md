@@ -94,6 +94,9 @@
 | `burnout_time` | Время угасания | `time_ugas_set` | 10–90 | мин | config |
 | `auger_interval_heating` | Шнек: интервал (нагрев) | `shn_roz_set` | 1–600 | с | config |
 | `auger_interval_maintenance` | Шнек: интервал (поддержание) | `shn_uga_set` | 1–900 | с | config |
+| `auger_run_heating` | Шнек: работа (нагрев) | `shn_roz_vkl_set` | 1–300 | с | config |
+| `auger_run_maintenance` | Шнек: работа (поддержание) | `shn_uga_vkl_set` | 1–300 | с | config |
+| `auger_reverse_interval` | Шнек: интервал автореверса | `shn_rev_auto_i_set` | 1–600 | — | config |
 
 ## Расписание климат-контроля
 

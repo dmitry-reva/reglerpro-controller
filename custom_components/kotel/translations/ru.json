@@ -308,6 +308,15 @@
       "auger_interval_maintenance": {
         "name": "Шнек: интервал (поддержание)"
       },
+      "auger_run_heating": {
+        "name": "Шнек: работа (нагрев)"
+      },
+      "auger_run_maintenance": {
+        "name": "Шнек: работа (поддержание)"
+      },
+      "auger_reverse_interval": {
+        "name": "Шнек: интервал автореверса"
+      },
       "schedule_m3_p1_time": {
         "name": "Расписание 7/7 (ПН–ВС): П1 — начало"
       },

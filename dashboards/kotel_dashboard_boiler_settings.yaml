@@ -129,6 +129,24 @@ views:
                 icon: mdi:cog
                 tap_action:
                   action: more-info
+              - type: simple-entity
+                entity: number.kotel_kontroller_shnek_rabota_nagrev_2
+                name: 'Шнек: работа (нагрев)'
+                icon: mdi:timer-play-outline
+                tap_action:
+                  action: more-info
+              - type: simple-entity
+                entity: number.kotel_kontroller_shnek_rabota_podderzhanie_2
+                name: 'Шнек: работа (поддержание)'
+                icon: mdi:timer-play-outline
+                tap_action:
+                  action: more-info
+              - type: simple-entity
+                entity: number.kotel_kontroller_shnek_interval_avtoreversa_2
+                name: 'Шнек: интервал автореверса'
+                icon: mdi:swap-horizontal
+                tap_action:
+                  action: more-info
           - type: heading
             heading: Только чтение
             heading_style: subtitle
