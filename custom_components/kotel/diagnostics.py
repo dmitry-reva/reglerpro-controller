@@ -41,6 +41,7 @@ async def async_get_config_entry_diagnostics(
                 "name": data.get("name"),
                 "type": data.get("type"),
                 "online": data.get("mqtt_online"),
+                "detail_ok": data.get("detail_ok"),
                 "params_count": len(data.get("params") or {}),
                 "climate": data.get("climate"),
                 "raw": _redact(data.get("raw")),

@@ -71,6 +71,8 @@ class KotelClimate(KotelEntity, ClimateEntity):
         | ClimateEntityFeature.TURN_OFF
     )
     _attr_icon = "mdi:home-thermometer"
+    # 48 значений расписания в базу истории не пишем: они остаются в состоянии
+    _unrecorded_attributes = frozenset({"schedule"})
 
     def __init__(self, coordinator: KotelCoordinator, dev_id: str, entry_id: str):
         super().__init__(
@@ -157,9 +159,18 @@ class KotelClimate(KotelEntity, ClimateEntity):
         """Обновить данные перед решением «включать/выключать».
 
         climat_on_off — переключатель без явного значения, поэтому решение
-        нельзя принимать по устаревшему состоянию.
+        нельзя принимать по устаревшему или неполному состоянию. Если данные
+        не обновились или детальный ответ контроллера не получен (климат тогда
+        разбирается из списка устройств и выглядит «выключенным»), команда
+        не отправляется.
         """
         await self.coordinator.async_refresh()
+        if not self.coordinator.last_update_success or not self._data.get("detail_ok"):
+            raise HomeAssistantError(
+                "Нет актуальных данных климат-контроля: команда не отправлена, "
+                "чтобы не переключить его по устаревшему состоянию. "
+                "Повторите через минуту."
+            )
         return self._climate
 
     async def _ensure_enabled(self, want: bool) -> None:

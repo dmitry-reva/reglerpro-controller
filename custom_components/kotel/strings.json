@@ -16,6 +16,9 @@
       "cannot_connect": "Cannot connect to the server",
       "no_home_id": "No devices found. Specify the home ID",
       "no_devices": "No devices found for this home ID"
+    },
+    "abort": {
+      "already_configured": "This account is already configured."
     }
   },
   "options": {
@@ -704,6 +707,21 @@
           "name": "If the name is taken",
           "description": "Names are compared within the same profile kind."
         }
+      }
+    }
+  },
+  "selector": {
+    "on_conflict": {
+      "options": {
+        "rename": "Add with a number, e.g. (2)",
+        "overwrite": "Replace the existing profile",
+        "skip": "Skip"
+      }
+    },
+    "profile_kind": {
+      "options": {
+        "boiler": "Boiler",
+        "climate": "Climate"
       }
     }
   }

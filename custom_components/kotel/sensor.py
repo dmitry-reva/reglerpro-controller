@@ -13,7 +13,7 @@ from homeassistant.const import UnitOfTemperature, UnitOfTime
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity import EntityCategory
 
-from .const import DEVICE_TYPE_CONTR, DEVICE_TYPE_DT, DOMAIN
+from .const import DEVICE_TYPE_CONTR, DEVICE_TYPE_DT, DOMAIN, DT_STALE_SECONDS
 from .coordinator import KotelCoordinator
 from .entity import KotelEntity
 from .params_parser import is_kotel_auto, sost_rab_text
@@ -427,7 +427,17 @@ class KotelContrDebugSensor(KotelEntity, SensorEntity):
 
     Состояние — количество разобранных параметров. Если оно 0, значит
     строка params не распознана; смотрите атрибут params_raw.
+
+    По умолчанию отключён, а крупные атрибуты не пишутся в базу истории:
+    они меняются при любом изменении температуры и раздували бы базу.
+    Включить сенсор можно в «Настройки → Устройства и службы → Сущности».
     """
+
+    _attr_entity_registry_enabled_default = False
+    _unrecorded_attributes = frozenset({
+        "params_raw", "params", "climate", "tstatArr", "tempUstNowTstate",
+        "raw_keys", "list_raw_keys",
+    })
 
     def __init__(self, coordinator, dev_id):
         super().__init__(
@@ -562,8 +572,9 @@ class KotelDtSensor(KotelEntity, SensorEntity):
     @property
     def extra_state_attributes(self):
         data = self.coordinator.data.get(self._dev_id, {})
-        last_update = data.get("time") or 0
+        age = _to_number(data.get("time"))      # секунд с последнего сообщения
         return {
-            "last_update_seconds": last_update,
-            "online": last_update < 300,
+            "last_update_seconds": age,
+            # нет данных о времени — состояние неизвестно, а не «в сети»
+            "online": None if age is None else age < DT_STALE_SECONDS,
         }

@@ -15,7 +15,7 @@ from homeassistant.helpers.update_coordinator import (  # type: ignore[import-no
 )
 
 from .api import KotelApiClient, KotelApiError
-from .const import DEFAULT_SCAN_INTERVAL, DOMAIN
+from .const import DEFAULT_SCAN_INTERVAL, DOMAIN, DT_STALE_SECONDS
 from .params_parser import get_params
 
 _LOGGER = logging.getLogger(__name__)
@@ -186,6 +186,10 @@ class KotelCoordinator(DataUpdateCoordinator):
                     "name": dev_name,
                     "id": dev_id,
                     "params": params,
+                    # False — детальный ответ get_big_contr не получен, данные
+                    # взяты из списка устройств и могут быть неполными
+                    # (в них может не быть tstatArr и других полей климата)
+                    "detail_ok": bool(details_by_id.get(dev_id)),
                     # приводим к "1"/"0", как ожидают сенсоры и проверки профилей
                     "mqtt_online": "1" if _truthy(pick("mqtt_online", 0)) else "0",
                     "climate": _parse_climate(pick),
@@ -199,7 +203,8 @@ class KotelCoordinator(DataUpdateCoordinator):
                     "name": dev_name,
                     "id": dev_id,
                     "temp": dev.get("temp"),
-                    "time": dev.get("time", 0),
+                    # секунд с последнего сообщения датчика; None — сервер не сообщил
+                    "time": to_number(dev.get("time")),
                     "raw": dev,
                 }
 
@@ -211,7 +216,11 @@ class KotelCoordinator(DataUpdateCoordinator):
                 continue
             climate = dev_data["climate"]
             sensor = result_data.get(climate.get("sensor_id"))
-            precise = to_number(sensor.get("temp")) if sensor else None
+            age = sensor.get("time") if sensor else None
+            stale = age is not None and age >= DT_STALE_SECONDS
+            # устаревшую температуру датчика не подставляем: остаётся
+            # значение, которое отдал сам контроллер
+            precise = to_number(sensor.get("temp")) if sensor and not stale else None
             if precise is not None:
                 climate["sensor_temp"] = precise
 

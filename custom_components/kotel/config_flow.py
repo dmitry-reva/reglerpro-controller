@@ -14,7 +14,11 @@ from homeassistant.helpers import config_validation as cv  # pyright: ignore[rep
 from homeassistant.helpers.selector import (
     FileSelector,
     FileSelectorConfig,
+    SelectSelector,
+    SelectSelectorConfig,
+    SelectSelectorMode,
 )
+from homeassistant.helpers.translation import async_get_translations
 
 from .const import CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL, DEFAULT_URL, DOMAIN
 from .profiles import EXPORT_DIR, KIND_LABELS
@@ -26,6 +30,31 @@ STEP_USER_DATA_SCHEMA = vol.Schema({
     vol.Required("password"): str,
     vol.Optional("home_id", default=""): str,
 })
+
+
+ON_CONFLICT_OPTIONS = ["rename", "overwrite", "skip"]   # подписи — selector.on_conflict
+
+
+async def _kind_labels(hass) -> dict[str, str]:
+    """Подписи типов профилей на языке интерфейса (selector.profile_kind).
+
+    Если перевода нет, используются русские подписи из KIND_LABELS.
+    """
+    translations = await async_get_translations(
+        hass, hass.config.language, "selector", [DOMAIN])
+    prefix = f"component.{DOMAIN}.selector.profile_kind.options."
+    return {
+        kind: translations.get(prefix + kind) or label
+        for kind, label in KIND_LABELS.items()
+    }
+
+
+def _import_choices_for(profiles: list[dict], labels: dict[str, str]) -> dict[str, str]:
+    """{"тип|имя": подпись} для выбора профилей из файла."""
+    return {
+        f"{p['kind']}|{p['name']}": f"{labels[p['kind']]} · {p['name']}"
+        for p in profiles
+    }
 
 
 def _sanitize_filename(name: str) -> str:
@@ -211,7 +240,7 @@ class KotelOptionsFlow(config_entries.OptionsFlow):
 
     # --- экспорт профилей ----------------------------------------------------
     async def async_step_export(self, user_input=None):
-        choices = self._manager.profile_choices()
+        choices = self._manager.profile_choices(await _kind_labels(self.hass))
         if not choices:
             return self.async_abort(reason="no_profiles")
         errors = {}
@@ -256,10 +285,8 @@ class KotelOptionsFlow(config_entries.OptionsFlow):
                 placeholders["error"] = str(err)
             else:
                 self._import_file = user_input["file"]
-                self._import_choices = {
-                    f"{p['kind']}|{p['name']}": f"{KIND_LABELS[p['kind']]} · {p['name']}"
-                    for p in profiles
-                }
+                self._import_choices = _import_choices_for(
+                    profiles, await _kind_labels(self.hass))
                 return await self.async_step_import_select()
         return self.async_show_form(
             step_id="import_file",
@@ -293,10 +320,8 @@ class KotelOptionsFlow(config_entries.OptionsFlow):
             else:
                 if filename:
                     self._import_file = filename
-                    self._import_choices = {
-                        f"{p['kind']}|{p['name']}": f"{KIND_LABELS[p['kind']]} · {p['name']}"
-                        for p in profiles
-                    }
+                    self._import_choices = _import_choices_for(
+                        profiles, await _kind_labels(self.hass))
                     return await self.async_step_import_select()
             if filename:
                 await self.hass.async_add_executor_job(
@@ -321,8 +346,9 @@ class KotelOptionsFlow(config_entries.OptionsFlow):
                 dev_id=user_input["controller"],
                 on_conflict=user_input["on_conflict"],
             )
+            labels = await _kind_labels(self.hass)
             renamed = ", ".join(
-                f"{KIND_LABELS[r['kind']]} · {r['from']} → {r['to']}" for r in result["renamed"]
+                f"{labels[r['kind']]} · {r['from']} → {r['to']}" for r in result["renamed"]
             ) or "—"
             return self.async_abort(
                 reason="import_done",
@@ -338,17 +364,19 @@ class KotelOptionsFlow(config_entries.OptionsFlow):
                 vol.Required("profiles", default=list(self._import_choices)): cv.multi_select(
                     self._import_choices),
                 vol.Required("controller", default=next(iter(controllers))): vol.In(controllers),
-                vol.Required("on_conflict", default="rename"): vol.In({
-                    "rename": "Добавить с номером «(2)»",
-                    "overwrite": "Заменить существующий",
-                    "skip": "Пропустить",
-                }),
+                vol.Required("on_conflict", default="rename"): SelectSelector(
+                    SelectSelectorConfig(
+                        options=ON_CONFLICT_OPTIONS,
+                        translation_key="on_conflict",
+                        mode=SelectSelectorMode.DROPDOWN,
+                    )
+                ),
             }),
         )
 
     # --- удаление профилей ---------------------------------------------------
     async def async_step_delete(self, user_input=None):
-        choices = self._manager.profile_choices()
+        choices = self._manager.profile_choices(await _kind_labels(self.hass))
         if not choices:
             return self.async_abort(reason="no_profiles")
         if user_input is not None:

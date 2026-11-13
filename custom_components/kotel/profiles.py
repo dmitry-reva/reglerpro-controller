@@ -675,15 +675,19 @@ class KotelProfileManager:
                 return name
         return None
 
-    def profile_choices(self) -> dict[str, str]:
-        """{"id|тип|имя": подпись} — для окон выбора."""
+    def profile_choices(self, kind_labels: dict[str, str] | None = None) -> dict[str, str]:
+        """{"id|тип|имя": подпись} — для окон выбора.
+
+        kind_labels — подписи типов профилей на языке интерфейса; без них — русские.
+        """
+        labels = kind_labels or KIND_LABELS
         many = len(self._data["devices"]) > 1
         choices = {}
         for dev_id, device in self._data["devices"].items():
             for kind in ALL_KINDS:
                 profiles = (device.get(kind) or {}).get("profiles", {})
                 for name in sorted(profiles, key=str.casefold):
-                    label = f"{KIND_LABELS[kind]} · {name}"
+                    label = f"{labels.get(kind, KIND_LABELS[kind])} · {name}"
                     if many:
                         label = f"{self.device_name(dev_id)}: {label}"
                     choices[f"{dev_id}|{kind}|{name}"] = label
@@ -742,6 +746,17 @@ class KotelProfileManager:
         if not exists and len(bucket["profiles"]) >= MAX_PROFILES_PER_DEVICE:
             raise ServiceValidationError(
                 f"Достигнут предел: {MAX_PROFILES_PER_DEVICE} профилей типа «{KIND_LABELS[kind]}»")
+
+        # Значения берём только из свежих данных: после изменений на контроллере или
+        # в приложении координатор мог не успеть обновиться (до 30 с).
+        coordinator, _ = self._runtime(dev_id)
+        await coordinator.async_refresh()
+        fresh = (coordinator.data or {}).get(dev_id)
+        if (not coordinator.last_update_success or not fresh
+                or not fresh.get("detail_ok", True)):
+            raise HomeAssistantError(
+                "Не удалось обновить данные контроллера: профиль не сохранён, "
+                "чтобы не записать устаревшие значения. Повторите позже.")
 
         values = self._snapshot(dev_id, scopes)
         mode = self._current_mode(dev_id)

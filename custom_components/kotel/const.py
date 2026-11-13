@@ -19,6 +19,10 @@ ACTION_GET_BIG_CONTR = "get_big_contr"
 ACTION_GET_BIG_DT = "get_big_dt"
 ACTION_ADD_DEVICE = "add_device"
 
+# Датчик температуры (dt): если с его последнего сообщения прошло не меньше
+# этого числа секунд, он считается не в сети, а его температура устаревшей.
+DT_STALE_SECONDS = 300
+
 # Состояния работы контроллера
 SOST_RAB_STOPPED = 0
 SOST_RAB_RUNNING = 1

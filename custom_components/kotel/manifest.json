@@ -5,11 +5,11 @@
     "@dmitry-reva"
   ],
   "config_flow": true,
-  "dependencies": [],
+  "dependencies": ["file_upload"],
   "documentation": "https://github.com/dmitry-reva/reglerpro-controller",
   "integration_type": "hub",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/dmitry-reva/reglerpro-controller/issues",
   "requirements": [],
-  "version": "1.4.5"
+  "version": "1.4.6"
 }

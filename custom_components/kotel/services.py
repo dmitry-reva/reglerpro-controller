@@ -26,12 +26,31 @@ from .profiles import ALL_KINDS, ALL_SCOPES, KIND_BOILER, KIND_CLIMATE, KotelPro
 
 _LOGGER = logging.getLogger(__name__)
 
-# Поля цели (target) приходят вместе с данными службы, поэтому лишние ключи разрешены.
-_BASE = {vol.Optional("device_id"): vol.All(cv.ensure_list, [cv.string])}
+# Поля цели (target) HA добавляет к данным службы. Поддерживается только device_id;
+# остальные виды цели схема принимает, чтобы отказать понятной ошибкой, а не молча
+# применить службу ко всем контроллерам. Любые другие лишние ключи (опечатки
+# в dry_run, verify и т. п.) схема отклоняет.
+_UNSUPPORTED_TARGETS = ("entity_id", "area_id", "floor_id", "label_id")
+_BASE = {
+    vol.Optional("device_id"): vol.All(cv.ensure_list, [cv.string]),
+    **{
+        vol.Optional(key): vol.All(cv.ensure_list, [cv.string])
+        for key in _UNSUPPORTED_TARGETS
+    },
+}
 
 
 def _schema(fields: dict) -> vol.Schema:
-    return vol.Schema({**_BASE, **fields}, extra=vol.ALLOW_EXTRA)
+    return vol.Schema({**_BASE, **fields})      # extra=PREVENT_EXTRA (по умолчанию)
+
+
+def _reject_unsupported_targets(call: ServiceCall) -> None:
+    """Цель службы — только устройство: другие виды цели раньше игнорировались."""
+    used = [key for key in _UNSUPPORTED_TARGETS if call.data.get(key)]
+    if used:
+        raise ServiceValidationError(
+            "Службы Kotel поддерживают только цель «устройство» (device_id); "
+            f"не поддерживается: {', '.join(used)}")
 
 
 _SCOPES = vol.All(cv.ensure_list, [vol.In(ALL_SCOPES)])
@@ -94,6 +113,7 @@ def _manager(hass: HomeAssistant) -> KotelProfileManager:
 def resolve_device_ids(hass: HomeAssistant, manager: KotelProfileManager,
                        call: ServiceCall) -> list[str]:
     """Определить контроллеры по target; без target — единственный контроллер."""
+    _reject_unsupported_targets(call)
     controllers = list(manager.controllers())
     requested = call.data.get("device_id")
     if not requested:
@@ -205,6 +225,7 @@ def async_register_services(hass: HomeAssistant) -> None:
 
     async def export_profiles(call: ServiceCall):
         manager = _manager(hass)
+        _reject_unsupported_targets(call)
         names = call.data.get("profiles")
         kind = call.data.get("kind")
         if call.data.get("device_id") or names or kind:
