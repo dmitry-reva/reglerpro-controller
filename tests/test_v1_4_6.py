@@ -1,4 +1,4 @@
-"""Тесты изменений версии 1.4.6 (находки 36, 43, 45, 48, 49, 54, 57, 58, 44)."""
+"""Тесты изменений версии 1.4.6 (находки 43, 44, 45, 48, 49, 54, 57, 58)."""
 
 from __future__ import annotations
 
@@ -226,8 +226,9 @@ class SensorTests(unittest.TestCase):
 
 
 class TextTests(unittest.TestCase):
-    def test_name_must_not_be_empty(self):
-        self.assertEqual(text_mod.KotelProfileNameText._attr_native_min, 1)
+    def test_empty_draft_name_is_valid_state(self):
+        # HA отклоняет состояние короче native_min; черновик имени по умолчанию пуст
+        self.assertEqual(text_mod.KotelProfileNameText._attr_native_min, 0)
 
 
 class ProfileSaveTests(unittest.IsolatedAsyncioTestCase):

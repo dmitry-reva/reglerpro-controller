@@ -32,7 +32,10 @@ class KotelProfileNameText(KotelEntity, TextEntity):
 
     _attr_icon = "mdi:form-textbox"
     _attr_mode = TextMode.TEXT
-    _attr_native_min = 1          # пустое имя не принимается уже при вводе
+    # Должно оставаться 0: черновик имени по умолчанию пустой, а Home Assistant
+    # отклоняет состояние короче native_min (сущность не добавится).
+    # Пустое имя отсекает кнопка «Сохранить профиль».
+    _attr_native_min = 0
     _attr_native_max = MAX_NAME_LENGTH
 
     def __init__(self, coordinator: KotelCoordinator, dev_id: str, manager,
