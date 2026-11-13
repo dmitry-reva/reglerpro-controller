@@ -18,7 +18,7 @@ views:
                     state: '1'
                 elements:
                   - type: state-label
-                    entity: sensor.kotel_kontroller_temperatura_vody
+                    entity: sensor.kotel_kontroller_water_temperature
                     style:
                       left: 55.9%
                       top: 33.2%
@@ -36,7 +36,7 @@ views:
                     state: '2'
                 elements:
                   - type: state-label
-                    entity: number.kotel_kontroller_ventiliator_max
+                    entity: number.kotel_kontroller_fan_max
                     style:
                       left: 55.9%
                       top: 33.2%
@@ -54,7 +54,7 @@ views:
                     state: '3'
                 elements:
                   - type: state-label
-                    entity: sensor.kotel_kontroller_shnek_interval_nagrev
+                    entity: sensor.kotel_kontroller_auger_interval_heating
                     style:
                       left: 55.9%
                       top: 33.2%
@@ -72,7 +72,7 @@ views:
                     state: '4'
                 elements:
                   - type: state-label
-                    entity: sensor.kotel_kontroller_shnek_interval_podderzhanie
+                    entity: sensor.kotel_kontroller_auger_interval_maintenance
                     style:
                       left: 55.9%
                       top: 33.2%
@@ -90,7 +90,7 @@ views:
                     state: '5'
                 elements:
                   - type: state-label
-                    entity: number.kotel_kontroller_vremia_produvki
+                    entity: number.kotel_kontroller_purge_time
                     style:
                       left: 55.9%
                       top: 33.2%
@@ -108,7 +108,7 @@ views:
                     state: '6'
                 elements:
                   - type: state-label
-                    entity: number.kotel_kontroller_interval_produvki
+                    entity: number.kotel_kontroller_purge_interval
                     style:
                       left: 55.9%
                       top: 33.2%
@@ -126,7 +126,7 @@ views:
                     state: '7'
                 elements:
                   - type: state-label
-                    entity: number.kotel_kontroller_ustavka_temperatury_min
+                    entity: number.kotel_kontroller_target_temperature_min
                     style:
                       left: 55.9%
                       top: 33.2%
@@ -144,7 +144,7 @@ views:
                     state: '8'
                 elements:
                   - type: state-label
-                    entity: number.kotel_kontroller_vremia_ugasaniia
+                    entity: number.kotel_kontroller_burnout_time
                     style:
                       left: 55.9%
                       top: 33.2%
@@ -162,7 +162,7 @@ views:
                     state: '9'
                 elements:
                   - type: state-label
-                    entity: number.kotel_kontroller_temperatura_nasosa
+                    entity: number.kotel_kontroller_pump_temperature
                     style:
                       left: 55.9%
                       top: 33.2%
@@ -180,7 +180,7 @@ views:
                     state: A
                 elements:
                   - type: state-label
-                    entity: number.kotel_kontroller_ventiliator_min
+                    entity: number.kotel_kontroller_fan_min
                     style:
                       left: 55.9%
                       top: 33.2%
@@ -198,7 +198,7 @@ views:
                     state: B
                 elements:
                   - type: state-label
-                    entity: number.kotel_kontroller_korrektsiia_temperatury
+                    entity: number.kotel_kontroller_temperature_correction
                     style:
                       left: 55.9%
                       top: 33.2%
@@ -216,7 +216,7 @@ views:
                     state: E
                 elements:
                   - type: state-label
-                    entity: sensor.kotel_kontroller_klimat_temperatura_datchika
+                    entity: sensor.kotel_kontroller_climate_sensor_temperature
                     style:
                       left: 55.9%
                       top: 33.2%
@@ -234,7 +234,7 @@ views:
                     state: S
                 elements:
                   - type: state-label
-                    entity: sensor.kotel_kontroller_temperatura_shneka
+                    entity: sensor.kotel_kontroller_auger_temperature
                     style:
                       left: 55.9%
                       top: 33.2%
@@ -289,7 +289,7 @@ views:
               - type: conditional
                 conditions:
                   - condition: state
-                    entity: sensor.kotel_kontroller_ventiliator_vkliuchen
+                    entity: sensor.kotel_kontroller_fan_on
                     state: да
                 elements:
                   - type: icon
@@ -303,7 +303,7 @@ views:
               - type: conditional
                 conditions:
                   - condition: state
-                    entity: sensor.kotel_kontroller_sostoianie
+                    entity: sensor.kotel_kontroller_operating_state
                     state: Розжиг/Угасание
                 elements:
                   - type: icon
@@ -317,7 +317,7 @@ views:
               - type: conditional
                 conditions:
                   - condition: state
-                    entity: sensor.kotel_kontroller_status_podkliucheniia
+                    entity: sensor.kotel_kontroller_connection_status
                     state: online
                 elements:
                   - type: icon
@@ -331,7 +331,7 @@ views:
               - type: conditional
                 conditions:
                   - condition: state
-                    entity: sensor.kotel_kontroller_klimat_vkliuchen
+                    entity: sensor.kotel_kontroller_climate_enabled
                     state: да
                 elements:
                   - type: icon
@@ -346,15 +346,15 @@ views:
               columns: full
           - type: history-graph
             entities:
-              - entity: sensor.kotel_kontroller_temperatura_vody
+              - entity: sensor.kotel_kontroller_water_temperature
                 name: Вода
-              - entity: sensor.kotel_kontroller_ustavka_temperatury_max
+              - entity: sensor.kotel_kontroller_target_temperature_max
                 name: Уставка макс.
-              - entity: sensor.kotel_kontroller_ustavka_temperatury_min
+              - entity: sensor.kotel_kontroller_target_temperature_min
                 name: Уставка мин.
-              - entity: sensor.kotel_kontroller_klimat_temperatura_datchika
+              - entity: sensor.kotel_kontroller_climate_sensor_temperature
                 name: Помещение
-              - entity: sensor.kotel_kontroller_klimat_tselevaia_temperatura
+              - entity: sensor.kotel_kontroller_climate_target_temperature
                 name: Цель климата
             hours_to_show: 4
             show_names: false
@@ -366,15 +366,15 @@ views:
             icon: mdi:fire
             badges:
               - type: entity
-                entity: sensor.kotel_kontroller_status_podkliucheniia
+                entity: sensor.kotel_kontroller_connection_status
                 show_state: true
                 show_icon: true
               - type: entity
-                entity: sensor.kotel_kontroller_aktivnyi_profil
+                entity: sensor.kotel_kontroller_active_boiler_profile
                 show_state: true
                 show_icon: true
               - type: entity
-                entity: sensor.kotel_kontroller_aktivnyi_profil_klimata
+                entity: sensor.kotel_kontroller_active_climate_profile
                 show_state: true
                 show_icon: true
           - type: conditional
@@ -382,19 +382,19 @@ views:
               - condition: or
                 conditions:
                   - condition: state
-                    entity: sensor.kotel_kontroller_trevoga_po_vode
+                    entity: sensor.kotel_kontroller_water_alarm
                     state: да
                   - condition: state
-                    entity: sensor.kotel_kontroller_avariia_shneka
+                    entity: sensor.kotel_kontroller_auger_failure
                     state: да
                   - condition: state
-                    entity: sensor.kotel_kontroller_oshibka_datchika_t_vody
+                    entity: sensor.kotel_kontroller_water_temperature_sensor_error
                     state: да
                   - condition: state
-                    entity: sensor.kotel_kontroller_oshibka_datchika_t_shneka
+                    entity: sensor.kotel_kontroller_auger_temperature_sensor_error
                     state: да
                   - condition: state
-                    entity: sensor.kotel_kontroller_oshibka_simistora
+                    entity: sensor.kotel_kontroller_triac_error
                     state: да
             card:
               type: markdown
@@ -402,7 +402,7 @@ views:
                 ## ⚠️ Неисправность котла
                 Проверьте аварии и ошибки в разделе **Диагностика**.
           - type: gauge
-            entity: sensor.kotel_kontroller_klimat_temperatura_datchika
+            entity: sensor.kotel_kontroller_climate_sensor_temperature
             min: 10
             max: 50
             needle: true
@@ -418,7 +418,7 @@ views:
             name:
               type: entity
           - type: tile
-            entity: sensor.kotel_kontroller_temperatura_vody
+            entity: sensor.kotel_kontroller_water_temperature
             name: Температура воды
             icon: mdi:water-thermometer
             vertical: true
@@ -428,12 +428,12 @@ views:
             features:
               - type: trend-graph
           - type: tile
-            entity: sensor.kotel_kontroller_sostoianie
+            entity: sensor.kotel_kontroller_operating_state
             name: Состояние
             icon: mdi:state-machine
             vertical: true
           - type: tile
-            entity: sensor.kotel_kontroller_status_podkliucheniia
+            entity: sensor.kotel_kontroller_connection_status
             name: Связь
             icon: mdi:wifi
             vertical: true
@@ -453,17 +453,17 @@ views:
               confirmation:
                 text: Переключить котёл?
           - type: tile
-            entity: number.kotel_kontroller_ustavka_temperatury_max
+            entity: number.kotel_kontroller_target_temperature_max
             name: Уставка (макс.)
             icon: mdi:thermometer-high
             vertical: true
           - type: tile
-            entity: number.kotel_kontroller_ustavka_temperatury_min
+            entity: number.kotel_kontroller_target_temperature_min
             name: Уставка (мин.)
             icon: mdi:thermometer-low
             vertical: true
           - type: tile
-            entity: number.kotel_kontroller_korrektsiia_temperatury
+            entity: number.kotel_kontroller_temperature_correction
             name: Коррекция
             icon: mdi:thermometer-plus
             vertical: true
@@ -479,7 +479,7 @@ views:
             heading: Режим
             heading_style: title
           - type: thermostat
-            entity: climate.kotel_kontroller_termostat
+            entity: climate.kotel_kontroller_thermostat
             features:
               - type: climate-hvac-modes
                 hvac_modes:
@@ -495,10 +495,10 @@ views:
           - type: entities
             title: Датчик климата
             entities:
-              - entity: select.kotel_kontroller_datchik_klimat_kontrolia
-              - entity: sensor.kotel_kontroller_klimat_temperatura_datchika
+              - entity: select.kotel_kontroller_climate_sensor
+              - entity: sensor.kotel_kontroller_climate_sensor_temperature
                 name: Температура
-              - entity: sensor.kotel_kontroller_klimat_tselevaia_temperatura
+              - entity: sensor.kotel_kontroller_climate_target_temperature
                 name: Целевая температура
       - type: grid
         cards:
@@ -508,21 +508,21 @@ views:
           - type: entities
             title: ПН–ВС
             entities:
-              - entity: number.kotel_kontroller_raspisanie_7_7_pn_vs_p1_nachalo
+              - entity: number.kotel_kontroller_schedule_7_7_mon_sun_p1_start
                 name: П1 — начало
-              - entity: number.kotel_kontroller_raspisanie_7_7_pn_vs_p1_tdeg
+              - entity: number.kotel_kontroller_schedule_7_7_mon_sun_p1_temperature
                 name: П1 — температура
-              - entity: number.kotel_kontroller_raspisanie_7_7_pn_vs_p2_nachalo
+              - entity: number.kotel_kontroller_schedule_7_7_mon_sun_p2_start
                 name: П2 — начало
-              - entity: number.kotel_kontroller_raspisanie_7_7_pn_vs_p2_tdeg
+              - entity: number.kotel_kontroller_schedule_7_7_mon_sun_p2_temperature
                 name: П2 — температура
-              - entity: number.kotel_kontroller_raspisanie_7_7_pn_vs_p3_nachalo
+              - entity: number.kotel_kontroller_schedule_7_7_mon_sun_p3_start
                 name: П3 — начало
-              - entity: number.kotel_kontroller_raspisanie_7_7_pn_vs_p3_tdeg
+              - entity: number.kotel_kontroller_schedule_7_7_mon_sun_p3_temperature
                 name: П3 — температура
-              - entity: number.kotel_kontroller_raspisanie_7_7_pn_vs_p4_nachalo
+              - entity: number.kotel_kontroller_schedule_7_7_mon_sun_p4_start
                 name: П4 — начало
-              - entity: number.kotel_kontroller_raspisanie_7_7_pn_vs_p4_tdeg
+              - entity: number.kotel_kontroller_schedule_7_7_mon_sun_p4_temperature
                 name: П4 — температура
       - type: grid
         cards:
@@ -532,40 +532,40 @@ views:
           - type: entities
             title: ПН–ПТ
             entities:
-              - entity: number.kotel_kontroller_raspisanie_5_2_pn_pt_p1_nachalo
+              - entity: number.kotel_kontroller_schedule_5_2_mon_fri_p1_start
                 name: П1 — начало
-              - entity: number.kotel_kontroller_raspisanie_5_2_pn_pt_p1_tdeg
+              - entity: number.kotel_kontroller_schedule_5_2_mon_fri_p1_temperature
                 name: П1 — температура
-              - entity: number.kotel_kontroller_raspisanie_5_2_pn_pt_p2_nachalo
+              - entity: number.kotel_kontroller_schedule_5_2_mon_fri_p2_start
                 name: П2 — начало
-              - entity: number.kotel_kontroller_raspisanie_5_2_pn_pt_p2_tdeg
+              - entity: number.kotel_kontroller_schedule_5_2_mon_fri_p2_temperature
                 name: П2 — температура
-              - entity: number.kotel_kontroller_raspisanie_5_2_pn_pt_p3_nachalo
+              - entity: number.kotel_kontroller_schedule_5_2_mon_fri_p3_start
                 name: П3 — начало
-              - entity: number.kotel_kontroller_raspisanie_5_2_pn_pt_p3_tdeg
+              - entity: number.kotel_kontroller_schedule_5_2_mon_fri_p3_temperature
                 name: П3 — температура
-              - entity: number.kotel_kontroller_raspisanie_5_2_pn_pt_p4_nachalo
+              - entity: number.kotel_kontroller_schedule_5_2_mon_fri_p4_start
                 name: П4 — начало
-              - entity: number.kotel_kontroller_raspisanie_5_2_pn_pt_p4_tdeg
+              - entity: number.kotel_kontroller_schedule_5_2_mon_fri_p4_temperature
                 name: П4 — температура
           - type: entities
             title: СБ–ВС
             entities:
-              - entity: number.kotel_kontroller_raspisanie_5_2_sb_vs_p1_nachalo
+              - entity: number.kotel_kontroller_schedule_5_2_sat_sun_p1_start
                 name: П1 — начало
-              - entity: number.kotel_kontroller_raspisanie_5_2_sb_vs_p1_tdeg
+              - entity: number.kotel_kontroller_schedule_5_2_sat_sun_p1_temperature
                 name: П1 — температура
-              - entity: number.kotel_kontroller_raspisanie_5_2_sb_vs_p2_nachalo
+              - entity: number.kotel_kontroller_schedule_5_2_sat_sun_p2_start
                 name: П2 — начало
-              - entity: number.kotel_kontroller_raspisanie_5_2_sb_vs_p2_tdeg
+              - entity: number.kotel_kontroller_schedule_5_2_sat_sun_p2_temperature
                 name: П2 — температура
-              - entity: number.kotel_kontroller_raspisanie_5_2_sb_vs_p3_nachalo
+              - entity: number.kotel_kontroller_schedule_5_2_sat_sun_p3_start
                 name: П3 — начало
-              - entity: number.kotel_kontroller_raspisanie_5_2_sb_vs_p3_tdeg
+              - entity: number.kotel_kontroller_schedule_5_2_sat_sun_p3_temperature
                 name: П3 — температура
-              - entity: number.kotel_kontroller_raspisanie_5_2_sb_vs_p4_nachalo
+              - entity: number.kotel_kontroller_schedule_5_2_sat_sun_p4_start
                 name: П4 — начало
-              - entity: number.kotel_kontroller_raspisanie_5_2_sb_vs_p4_tdeg
+              - entity: number.kotel_kontroller_schedule_5_2_sat_sun_p4_temperature
                 name: П4 — температура
       - type: grid
         cards:
@@ -575,59 +575,59 @@ views:
           - type: entities
             title: ПН–ЧТ
             entities:
-              - entity: number.kotel_kontroller_raspisanie_4_1_2_pn_cht_p1_nachalo
+              - entity: number.kotel_kontroller_schedule_4_1_2_mon_thu_p1_start
                 name: П1 — начало
-              - entity: number.kotel_kontroller_raspisanie_4_1_2_pn_cht_p1_tdeg
+              - entity: number.kotel_kontroller_schedule_4_1_2_mon_thu_p1_temperature
                 name: П1 — температура
-              - entity: number.kotel_kontroller_raspisanie_4_1_2_pn_cht_p2_nachalo
+              - entity: number.kotel_kontroller_schedule_4_1_2_mon_thu_p2_start
                 name: П2 — начало
-              - entity: number.kotel_kontroller_raspisanie_4_1_2_pn_cht_p2_tdeg
+              - entity: number.kotel_kontroller_schedule_4_1_2_mon_thu_p2_temperature
                 name: П2 — температура
-              - entity: number.kotel_kontroller_raspisanie_4_1_2_pn_cht_p3_nachalo
+              - entity: number.kotel_kontroller_schedule_4_1_2_mon_thu_p3_start
                 name: П3 — начало
-              - entity: number.kotel_kontroller_raspisanie_4_1_2_pn_cht_p3_tdeg
+              - entity: number.kotel_kontroller_schedule_4_1_2_mon_thu_p3_temperature
                 name: П3 — температура
-              - entity: number.kotel_kontroller_raspisanie_4_1_2_pn_cht_p4_nachalo
+              - entity: number.kotel_kontroller_schedule_4_1_2_mon_thu_p4_start
                 name: П4 — начало
-              - entity: number.kotel_kontroller_raspisanie_4_1_2_pn_cht_p4_tdeg
+              - entity: number.kotel_kontroller_schedule_4_1_2_mon_thu_p4_temperature
                 name: П4 — температура
           - type: entities
             title: ПТ
             entities:
-              - entity: number.kotel_kontroller_raspisanie_4_1_2_pt_p1_nachalo
+              - entity: number.kotel_kontroller_schedule_4_1_2_fri_p1_start
                 name: П1 — начало
-              - entity: number.kotel_kontroller_raspisanie_4_1_2_pt_p1_tdeg
+              - entity: number.kotel_kontroller_schedule_4_1_2_fri_p1_temperature
                 name: П1 — температура
-              - entity: number.kotel_kontroller_raspisanie_4_1_2_pt_p2_nachalo
+              - entity: number.kotel_kontroller_schedule_4_1_2_fri_p2_start
                 name: П2 — начало
-              - entity: number.kotel_kontroller_raspisanie_4_1_2_pt_p2_tdeg
+              - entity: number.kotel_kontroller_schedule_4_1_2_fri_p2_temperature
                 name: П2 — температура
-              - entity: number.kotel_kontroller_raspisanie_4_1_2_pt_p3_nachalo
+              - entity: number.kotel_kontroller_schedule_4_1_2_fri_p3_start
                 name: П3 — начало
-              - entity: number.kotel_kontroller_raspisanie_4_1_2_pt_p3_tdeg
+              - entity: number.kotel_kontroller_schedule_4_1_2_fri_p3_temperature
                 name: П3 — температура
-              - entity: number.kotel_kontroller_raspisanie_4_1_2_pt_p4_nachalo
+              - entity: number.kotel_kontroller_schedule_4_1_2_fri_p4_start
                 name: П4 — начало
-              - entity: number.kotel_kontroller_raspisanie_4_1_2_pt_p4_tdeg
+              - entity: number.kotel_kontroller_schedule_4_1_2_fri_p4_temperature
                 name: П4 — температура
           - type: entities
             title: СБ–ВС
             entities:
-              - entity: number.kotel_kontroller_raspisanie_4_1_2_sb_vs_p1_nachalo
+              - entity: number.kotel_kontroller_schedule_4_1_2_sat_sun_p1_start
                 name: П1 — начало
-              - entity: number.kotel_kontroller_raspisanie_4_1_2_sb_vs_p1_tdeg
+              - entity: number.kotel_kontroller_schedule_4_1_2_sat_sun_p1_temperature
                 name: П1 — температура
-              - entity: number.kotel_kontroller_raspisanie_4_1_2_sb_vs_p2_nachalo
+              - entity: number.kotel_kontroller_schedule_4_1_2_sat_sun_p2_start
                 name: П2 — начало
-              - entity: number.kotel_kontroller_raspisanie_4_1_2_sb_vs_p2_tdeg
+              - entity: number.kotel_kontroller_schedule_4_1_2_sat_sun_p2_temperature
                 name: П2 — температура
-              - entity: number.kotel_kontroller_raspisanie_4_1_2_sb_vs_p3_nachalo
+              - entity: number.kotel_kontroller_schedule_4_1_2_sat_sun_p3_start
                 name: П3 — начало
-              - entity: number.kotel_kontroller_raspisanie_4_1_2_sb_vs_p3_tdeg
+              - entity: number.kotel_kontroller_schedule_4_1_2_sat_sun_p3_temperature
                 name: П3 — температура
-              - entity: number.kotel_kontroller_raspisanie_4_1_2_sb_vs_p4_nachalo
+              - entity: number.kotel_kontroller_schedule_4_1_2_sat_sun_p4_start
                 name: П4 — начало
-              - entity: number.kotel_kontroller_raspisanie_4_1_2_sb_vs_p4_tdeg
+              - entity: number.kotel_kontroller_schedule_4_1_2_sat_sun_p4_temperature
                 name: П4 — температура
   - title: Профили
     path: profiles
@@ -643,24 +643,25 @@ views:
             icon: mdi:fire
           - type: markdown
             content: >
-              Сохраняет **11 настроек котла**: уставки max/min, температуру
+              Сохраняет **14 настроек котла**: уставки max/min, температуру
               насоса, коррекцию, время и интервал продувки, вентилятор min/max,
-              время угасания, интервалы шнека. Старт/стоп и включение климата в
-              профиль **не входят** — это защита от случайного отключения.
+              время угасания, интервалы и время работы шнека, интервал
+              автореверса. Старт/стоп и включение климата в профиль **не входят**
+              — это защита от случайного отключения.
           - type: entities
             title: Текущее состояние
             show_header_toggle: false
             entities:
-              - entity: sensor.kotel_kontroller_aktivnyi_profil
+              - entity: sensor.kotel_kontroller_active_boiler_profile
                 name: Активный профиль
-              - entity: select.kotel_kontroller_profil
+              - entity: select.kotel_kontroller_boiler_profile
                 name: Выбранный профиль
           - type: heading
             heading: Применение и откат
             heading_style: subtitle
             icon: mdi:check-bold
           - type: tile
-            entity: button.kotel_kontroller_primenit_profil
+            entity: button.kotel_kontroller_apply_boiler_profile
             name: Применить выбранный
             icon: mdi:check-bold
             vertical: true
@@ -668,11 +669,11 @@ views:
               action: perform-action
               perform_action: button.press
               target:
-                entity_id: button.kotel_kontroller_primenit_profil
+                entity_id: button.kotel_kontroller_apply_boiler_profile
               confirmation:
                 text: Применить профиль котла к контроллеру?
           - type: tile
-            entity: button.kotel_kontroller_otmenit_primenenie
+            entity: button.kotel_kontroller_undo_boiler_profile
             name: Отменить применение
             icon: mdi:undo
             vertical: true
@@ -680,19 +681,21 @@ views:
               action: perform-action
               perform_action: button.press
               target:
-                entity_id: button.kotel_kontroller_otmenit_primenenie
+                entity_id: button.kotel_kontroller_undo_boiler_profile
               confirmation:
                 text: Вернуть прежние настройки котла?
           - type: entities
             title: Сохранение
             show_header_toggle: false
             entities:
-              - entity: text.kotel_kontroller_imia_novogo_profilia
+              - entity: text.kotel_kontroller_new_boiler_profile_name
                 name: Имя нового профиля
-              - entity: button.kotel_kontroller_sokhranit_profil
+              - entity: button.kotel_kontroller_save_boiler_profile
                 name: Сохранить как новый
-              - entity: button.kotel_kontroller_obnovit_profil
+              - entity: button.kotel_kontroller_update_boiler_profile
                 name: Обновить выбранный
+              - entity: button.kotel_kontroller_delete_boiler_profile
+                name: Удалить выбранный
       - type: grid
         cards:
           - type: heading
@@ -709,16 +712,16 @@ views:
             title: Текущее состояние
             show_header_toggle: false
             entities:
-              - entity: sensor.kotel_kontroller_aktivnyi_profil_klimata
+              - entity: sensor.kotel_kontroller_active_climate_profile
                 name: Активный профиль
-              - entity: select.kotel_kontroller_profil_klimata
+              - entity: select.kotel_kontroller_climate_profile
                 name: Выбранный профиль
           - type: heading
             heading: Применение и откат
             heading_style: subtitle
             icon: mdi:check-bold
           - type: tile
-            entity: button.kotel_kontroller_primenit_profil_klimata
+            entity: button.kotel_kontroller_apply_climate_profile
             name: Применить выбранный
             icon: mdi:check-bold
             vertical: true
@@ -726,11 +729,11 @@ views:
               action: perform-action
               perform_action: button.press
               target:
-                entity_id: button.kotel_kontroller_primenit_profil_klimata
+                entity_id: button.kotel_kontroller_apply_climate_profile
               confirmation:
                 text: Применить профиль климата к контроллеру?
           - type: tile
-            entity: button.kotel_kontroller_otmenit_primenenie_klimat
+            entity: button.kotel_kontroller_undo_climate_profile
             name: Отменить применение
             icon: mdi:undo
             vertical: true
@@ -738,19 +741,21 @@ views:
               action: perform-action
               perform_action: button.press
               target:
-                entity_id: button.kotel_kontroller_otmenit_primenenie_klimat
+                entity_id: button.kotel_kontroller_undo_climate_profile
               confirmation:
                 text: Вернуть прежние настройки климата?
           - type: entities
             title: Сохранение
             show_header_toggle: false
             entities:
-              - entity: text.kotel_kontroller_imia_novogo_profilia_klimata
+              - entity: text.kotel_kontroller_new_climate_profile_name
                 name: Имя нового профиля
-              - entity: button.kotel_kontroller_sokhranit_profil_klimata
+              - entity: button.kotel_kontroller_save_climate_profile
                 name: Сохранить как новый
-              - entity: button.kotel_kontroller_obnovit_profil_klimata
+              - entity: button.kotel_kontroller_update_climate_profile
                 name: Обновить выбранный
+              - entity: button.kotel_kontroller_delete_climate_profile
+                name: Удалить выбранный
   - title: Настройки
     path: boiler-settings
     icon: mdi:tune
@@ -768,25 +773,25 @@ views:
             state_color: false
             entities:
               - type: simple-entity
-                entity: number.kotel_kontroller_ustavka_temperatury_max
+                entity: number.kotel_kontroller_target_temperature_max
                 name: Уставка (макс.)
                 icon: mdi:thermometer-high
                 tap_action:
                   action: more-info
               - type: simple-entity
-                entity: number.kotel_kontroller_ustavka_temperatury_min
+                entity: number.kotel_kontroller_target_temperature_min
                 name: Уставка (мин.)
                 icon: mdi:thermometer-low
                 tap_action:
                   action: more-info
               - type: simple-entity
-                entity: number.kotel_kontroller_temperatura_nasosa
+                entity: number.kotel_kontroller_pump_temperature
                 name: Температура насоса
                 icon: mdi:water-pump
                 tap_action:
                   action: more-info
               - type: simple-entity
-                entity: number.kotel_kontroller_korrektsiia_temperatury
+                entity: number.kotel_kontroller_temperature_correction
                 name: Коррекция температуры
                 icon: mdi:thermometer-plus
                 tap_action:
@@ -802,25 +807,25 @@ views:
             state_color: false
             entities:
               - type: simple-entity
-                entity: number.kotel_kontroller_ventiliator_min
+                entity: number.kotel_kontroller_fan_min
                 name: Вентилятор (мин.)
                 icon: mdi:fan
                 tap_action:
                   action: more-info
               - type: simple-entity
-                entity: number.kotel_kontroller_ventiliator_max
+                entity: number.kotel_kontroller_fan_max
                 name: Вентилятор (макс.)
                 icon: mdi:fan
                 tap_action:
                   action: more-info
               - type: simple-entity
-                entity: number.kotel_kontroller_vremia_produvki
+                entity: number.kotel_kontroller_purge_time
                 name: Время продувки
                 icon: mdi:timer-outline
                 tap_action:
                   action: more-info
               - type: simple-entity
-                entity: number.kotel_kontroller_interval_produvki
+                entity: number.kotel_kontroller_purge_interval
                 name: Интервал продувки
                 icon: mdi:timer-sand
                 tap_action:
@@ -836,21 +841,39 @@ views:
             state_color: false
             entities:
               - type: simple-entity
-                entity: number.kotel_kontroller_vremia_ugasaniia
+                entity: number.kotel_kontroller_burnout_time
                 name: Время угасания
                 icon: mdi:fire-off
                 tap_action:
                   action: more-info
               - type: simple-entity
-                entity: number.kotel_kontroller_shnek_interval_nagrev
+                entity: number.kotel_kontroller_auger_interval_heating
                 name: 'Шнек: интервал (нагрев)'
                 icon: mdi:cog
                 tap_action:
                   action: more-info
               - type: simple-entity
-                entity: number.kotel_kontroller_shnek_interval_ugasanie
+                entity: number.kotel_kontroller_auger_interval_maintenance
                 name: 'Шнек: интервал (поддержание)'
                 icon: mdi:cog
+                tap_action:
+                  action: more-info
+              - type: simple-entity
+                entity: number.kotel_kontroller_auger_run_time_heating
+                name: 'Шнек: работа (нагрев)'
+                icon: mdi:timer-play-outline
+                tap_action:
+                  action: more-info
+              - type: simple-entity
+                entity: number.kotel_kontroller_auger_run_time_maintenance
+                name: 'Шнек: работа (поддержание)'
+                icon: mdi:timer-play-outline
+                tap_action:
+                  action: more-info
+              - type: simple-entity
+                entity: number.kotel_kontroller_auger_auto_reverse_interval
+                name: 'Шнек: интервал автореверса'
+                icon: mdi:swap-horizontal
                 tap_action:
                   action: more-info
     header: {}
@@ -869,15 +892,15 @@ views:
             title: Температура за 24 часа
             hours_to_show: 24
             entities:
-              - entity: sensor.kotel_kontroller_temperatura_vody
+              - entity: sensor.kotel_kontroller_water_temperature
                 name: Вода
-              - entity: sensor.kotel_kontroller_ustavka_temperatury_max
+              - entity: sensor.kotel_kontroller_target_temperature_max
                 name: Уставка макс.
-              - entity: sensor.kotel_kontroller_ustavka_temperatury_min
+              - entity: sensor.kotel_kontroller_target_temperature_min
                 name: Уставка мин.
-              - entity: sensor.kotel_kontroller_klimat_temperatura_datchika
+              - entity: sensor.kotel_kontroller_climate_sensor_temperature
                 name: Помещение
-              - entity: sensor.kotel_kontroller_klimat_tselevaia_temperatura
+              - entity: sensor.kotel_kontroller_climate_target_temperature
                 name: Цель климата
       - type: grid
         cards:
@@ -887,21 +910,33 @@ views:
           - type: entities
             title: Состояние
             entities:
-              - entity: sensor.kotel_kontroller_trevoga_po_vode
-              - entity: sensor.kotel_kontroller_avariia_shneka
-              - entity: sensor.kotel_kontroller_oshibka_datchika_t_vody
-              - entity: sensor.kotel_kontroller_oshibka_datchika_t_shneka
-              - entity: sensor.kotel_kontroller_oshibka_simistora
-              - entity: sensor.kotel_kontroller_ventiliator_vkliuchen
+              - entity: sensor.kotel_kontroller_water_alarm
+              - entity: sensor.kotel_kontroller_auger_failure
+              - entity: sensor.kotel_kontroller_water_temperature_sensor_error
+              - entity: sensor.kotel_kontroller_auger_temperature_sensor_error
+              - entity: sensor.kotel_kontroller_triac_error
+              - entity: sensor.kotel_kontroller_fan_on
+          - type: entities
+            title: Шнек
+            entities:
+              - entity: sensor.kotel_kontroller_auger_auto_reverse
+              - entity: sensor.kotel_kontroller_auger_auto_reverse_interval
+              - entity: sensor.kotel_kontroller_auger_run_time_heating
+              - entity: sensor.kotel_kontroller_auger_run_time_maintenance
+              - entity: sensor.kotel_kontroller_auger_reversing_now
           - type: entities
             title: Климат
             entities:
-              - entity: sensor.kotel_kontroller_klimat_vkliuchen
+              - entity: sensor.kotel_kontroller_climate_enabled
                 name: Климат включён
-              - entity: sensor.kotel_kontroller_klimat_datchik_vybran
+              - entity: sensor.kotel_kontroller_climate_sensor_selected
                 name: Датчик выбран
-              - entity: sensor.kotel_kontroller_klimat_tselevaia_temperatura
+              - entity: sensor.kotel_kontroller_climate_target_temperature
                 name: Целевая температура
+              - entity: sensor.kotel_kontroller_climate_sensor
+                name: Датчик
+              - entity: sensor.kotel_kontroller_climate_period
+                name: Период
       - type: grid
         cards:
           - type: heading
@@ -910,15 +945,15 @@ views:
           - type: entities
             title: Диагностика
             entities:
-              - entity: sensor.kotel_kontroller_versiia_proshivki
-              - entity: sensor.kotel_kontroller_diagnostika_parametrov
+              - entity: sensor.kotel_kontroller_firmware_version
+              - entity: sensor.kotel_kontroller_parameter_diagnostics
                 name: Разобрано параметров
               - type: attribute
-                entity: sensor.kotel_kontroller_diagnostika_parametrov
+                entity: sensor.kotel_kontroller_parameter_diagnostics
                 attribute: params_format
                 name: Формат params
               - type: attribute
-                entity: sensor.kotel_kontroller_diagnostika_parametrov
+                entity: sensor.kotel_kontroller_parameter_diagnostics
                 attribute: params_raw
                 name: Строка params
   - title: Справка
