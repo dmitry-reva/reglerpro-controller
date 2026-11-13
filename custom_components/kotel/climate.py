@@ -57,7 +57,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
 class KotelClimate(KotelEntity, ClimateEntity):
     """Климат-контроль котла (по датчику температуры помещения)."""
 
-    _attr_temperature_unit = UnitOfTemperature.CELSIUS
+    _attr_native_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_precision = PRECISION_TENTHS          # текущая температура — с десятыми
     _attr_target_temperature_step = CLIMATE_TEMP_STEP
     _attr_min_temp = CLIMATE_TEMP_MIN
@@ -121,11 +121,11 @@ class KotelClimate(KotelEntity, ClimateEntity):
         return HVACAction.COOLING if now else HVACAction.HEATING
 
     @property
-    def current_temperature(self):
+    def native_current_temperature(self):
         return self._climate.get("sensor_temp")
 
     @property
-    def target_temperature(self):
+    def native_target_temperature(self):
         climate = self._climate
         if climate.get("mode") in SCHEDULE_MODES:
             return climate.get("target_temp")            # цель текущего периода
