@@ -1,8 +1,10 @@
 """Config flow для интеграции Kotel."""
 
+import asyncio
 import os
 import re
 import shutil
+from urllib.parse import urlparse
 
 import voluptuous as vol  # pyright: ignore[reportMissingImports]
 from homeassistant import config_entries  # pyright: ignore[reportMissingImports]
@@ -11,6 +13,7 @@ from homeassistant.core import callback  # pyright: ignore[reportMissingImports]
 from homeassistant.exceptions import HomeAssistantError  # pyright: ignore[reportMissingImports]
 
 from homeassistant.helpers import config_validation as cv  # pyright: ignore[reportMissingImports]
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import (
     FileSelector,
     FileSelectorConfig,
@@ -20,12 +23,27 @@ from homeassistant.helpers.selector import (
 )
 from homeassistant.helpers.translation import async_get_translations
 
-from .const import CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL, DEFAULT_URL, DOMAIN
+from .const import (
+    CONF_FALLBACK_URLS,
+    CONF_SCAN_INTERVAL,
+    DEFAULT_SCAN_INTERVAL,
+    DEFAULT_URL,
+    DOMAIN,
+    KNOWN_SERVERS,
+)
 from .profiles import EXPORT_DIR, KIND_LABELS
-from .api import KotelApiClient, KotelApiError
+from .api import KotelApiClient, KotelApiError, build_servers
 
 STEP_USER_DATA_SCHEMA = vol.Schema({
-    vol.Required("url", default=DEFAULT_URL): str,
+    # основной сервер: из списка или свой адрес (у серверов из списка клиент API
+    # при сбое сам переходит на остальные — логин, пароль и дом у них общие)
+    vol.Required("url", default=DEFAULT_URL): SelectSelector(
+        SelectSelectorConfig(
+            options=list(KNOWN_SERVERS),
+            custom_value=True,
+            mode=SelectSelectorMode.DROPDOWN,
+        )
+    ),
     vol.Required("login"): str,
     vol.Required("password"): str,
     vol.Optional("home_id", default=""): str,
@@ -33,6 +51,28 @@ STEP_USER_DATA_SCHEMA = vol.Schema({
 
 
 ON_CONFLICT_OPTIONS = ["rename", "overwrite", "skip"]   # подписи — selector.on_conflict
+
+
+def _is_valid_server_url(url: str) -> bool:
+    """Адрес сервера: http(s)://хост, без пробелов, параметров и фрагмента."""
+    if not url or any(ch.isspace() for ch in url):
+        return False
+    parsed = urlparse(url)
+    return (parsed.scheme in ("http", "https") and bool(parsed.netloc)
+            and not parsed.query and not parsed.fragment)
+
+
+def _clean_server_urls(primary: str, fallbacks) -> tuple[str, list[str]]:
+    """Убрать пробелы и «/» на конце, дубли (без учёта регистра) и основной адрес из запасных."""
+    primary = (primary or "").strip().rstrip("/")
+    seen = {primary.lower()}
+    result: list[str] = []
+    for url in fallbacks or []:
+        url = (url or "").strip().rstrip("/")
+        if url and url.lower() not in seen:
+            seen.add(url.lower())
+            result.append(url)
+    return primary, result
 
 
 async def _kind_labels(hass) -> dict[str, str]:
@@ -102,15 +142,15 @@ class KotelConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors = {}
 
         if user_input is not None:
-            # Одна запись на связку «сервер + логин + дом»: защита от дублей.
+            # Одна запись на связку «логин + дом»: на разных серверах учётная запись
+            # одна и та же, поэтому адрес сервера в идентификатор не входит.
             home_id = (user_input.get("home_id") or "").strip()
-            unique_id = "|".join((
-                user_input["url"].strip().rstrip("/").lower(),
-                user_input["login"].strip().casefold(),
-                home_id,
-            ))
-            await self.async_set_unique_id(unique_id)
+            login = user_input["login"].strip()
+            user_input = {**user_input, "url": user_input["url"].strip().rstrip("/")}
+            await self.async_set_unique_id(f"{login.casefold()}|{home_id}")
             self._abort_if_unique_id_configured()
+            if self._account_already_configured(login, home_id):
+                return self.async_abort(reason="already_configured")
 
             # Проверяем соединение
             api = KotelApiClient(
@@ -139,6 +179,16 @@ class KotelConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
+    def _account_already_configured(self, login: str, home_id: str) -> bool:
+        """Есть ли запись с этой учётной записью (в том числе созданная до 1.4.7,
+        когда в unique_id входил адрес сервера)."""
+        login = login.strip().casefold()
+        for entry in self._async_current_entries():
+            if ((entry.data.get("login") or "").strip().casefold() == login
+                    and (entry.data.get("home_id") or "").strip() == home_id):
+                return True
+        return False
+
     @staticmethod
     @callback
     def async_get_options_flow(config_entry):
@@ -164,6 +214,7 @@ class KotelOptionsFlow(config_entries.OptionsFlow):
             menu_options=[
                 "add_temperature_sensor",
                 "settings",
+                "servers",
                 "export",
                 "import_file",
                 "upload",
@@ -174,7 +225,9 @@ class KotelOptionsFlow(config_entries.OptionsFlow):
     # --- параметры -----------------------------------------------------------
     async def async_step_settings(self, user_input=None):
         if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
+            # другие параметры (например, список серверов) не должны сбрасываться
+            return self.async_create_entry(
+                title="", data={**self.config_entry.options, **user_input})
 
         return self.async_show_form(
             step_id="settings",
@@ -186,6 +239,80 @@ class KotelOptionsFlow(config_entries.OptionsFlow):
                 ): vol.All(int, vol.Range(min=10, max=300)),
             }),
         )
+
+    # --- серверы -------------------------------------------------------------
+    async def async_step_servers(self, user_input=None):
+        """Основной и запасные серверы (учётная запись одна и та же на всех)."""
+        entry = self.config_entry
+        errors = {}
+        placeholders = {"server": "", "error": ""}
+        primary = entry.data.get("url") or DEFAULT_URL
+        stored = entry.options.get(CONF_FALLBACK_URLS)
+        fallbacks = list(stored) if stored is not None else build_servers(primary, None)[1:]
+
+        if user_input is not None:
+            primary, fallbacks = _clean_server_urls(
+                user_input["url"], user_input.get(CONF_FALLBACK_URLS))
+            urls = [primary, *fallbacks]
+            invalid = next((url for url in urls if not _is_valid_server_url(url)), None)
+            if invalid is not None:
+                errors["base"] = "invalid_url"
+                placeholders["server"] = invalid
+            elif not user_input.get("skip_check"):
+                failure = await self._check_servers(urls)
+                if failure is not None:
+                    errors["base"] = "server_check_failed"
+                    placeholders["server"], placeholders["error"] = failure
+            if not errors:
+                return self._save_servers(primary, fallbacks)
+
+        selector_config = dict(
+            options=list(KNOWN_SERVERS), custom_value=True, mode=SelectSelectorMode.DROPDOWN)
+        return self.async_show_form(
+            step_id="servers",
+            data_schema=vol.Schema({
+                vol.Required("url", default=primary): SelectSelector(
+                    SelectSelectorConfig(**selector_config)),
+                # suggested_value, а не default: иначе список нельзя очистить (отключить переход)
+                vol.Optional(
+                    CONF_FALLBACK_URLS, description={"suggested_value": fallbacks},
+                ): SelectSelector(SelectSelectorConfig(multiple=True, **selector_config)),
+                vol.Optional("skip_check", default=False): bool,
+            }),
+            errors=errors,
+            description_placeholders=placeholders,
+        )
+
+    async def _check_servers(self, urls: list[str]):
+        """Проверить каждый сервер отдельно под этой учётной записью.
+
+        Возвращает None, если все ответили списком устройств, иначе (адрес, причина).
+        """
+        data = self.config_entry.data
+        session = async_get_clientsession(self.hass)
+
+        async def check(url):
+            api = KotelApiClient(
+                base_url=url, login=data["login"], password=data["password"],
+                home_id=(data.get("home_id") or "").strip(),
+                session=session, fallback_urls=[],     # именно этот сервер, без переходов
+            )
+            try:
+                devices = await api.get_all_devices()
+            except KotelApiError as err:
+                return url, str(err)
+            return None if devices else (url, "список устройств пуст")
+
+        results = await asyncio.gather(*(check(url) for url in urls))
+        return next((result for result in results if result), None)
+
+    def _save_servers(self, primary: str, fallbacks: list[str]):
+        entry = self.config_entry
+        options = {**entry.options, CONF_FALLBACK_URLS: fallbacks}
+        data = entry.data if primary == entry.data.get("url") else {**entry.data, "url": primary}
+        # одним обновлением: слушатель записи перезагружает интеграцию один раз
+        self.hass.config_entries.async_update_entry(entry, data=data, options=options)
+        return self.async_create_entry(title="", data=options)
 
     async def async_step_add_temperature_sensor(self, user_input=None):
         errors = {}

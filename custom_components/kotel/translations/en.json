@@ -31,7 +31,8 @@
           "export": "Export profiles to a file",
           "import_file": "Import profiles from a file",
           "upload": "Upload a profiles file",
-          "delete": "Delete profiles"
+          "delete": "Delete profiles",
+          "servers": "Servers"
         }
       },
       "settings": {
@@ -91,6 +92,15 @@
         "data": {
           "profiles": "Profiles"
         }
+      },
+      "servers": {
+        "title": "Servers",
+        "description": "The account is the same on all servers. If the main server stops responding, the integration switches to a backup one. A command is never repeated on another server if it might already have been executed. Clear the backup list to turn switching off.",
+        "data": {
+          "url": "Main server",
+          "fallback_urls": "Backup servers",
+          "skip_check": "Save without checking the servers"
+        }
       }
     },
     "error": {
@@ -99,7 +109,9 @@
       "export_failed": "Export failed",
       "home_id_required": "Enter the ReglerPro home ID where the sensor should be registered",
       "confirmation_required": "Confirm that you are ready to configure the physical sensor",
-      "add_sensor_failed": "Could not register the sensor: {error}"
+      "add_sensor_failed": "Could not register the sensor: {error}",
+      "invalid_url": "Enter the server address starting with https:// (or http://): {server}",
+      "server_check_failed": "Server {server} did not respond: {error}"
     },
     "abort": {
       "no_profiles": "There are no saved profiles.",

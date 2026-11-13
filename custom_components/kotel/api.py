@@ -1,25 +1,58 @@
-"""Клиент API для Kotel (на основе функций из functions.js)."""
+"""Клиент API для Kotel (на основе функций из functions.js).
+
+Сервер доступен по нескольким адресам с одинаковыми логином, паролем и номером
+дома (см. KNOWN_SERVERS). Клиент работает с одним из них и при сбое переходит на
+следующий. Правила перехода рассчитаны на то, что часть команд — переключатели
+(например, climat_on_off), и повтор уже выполненной команды их инвертирует:
+
+* чтение (get_all_dev, get_big_contr, get_big_dt, get_climat_sensors) повторяется
+  на другом сервере при сетевой ошибке, таймауте, ответе 5xx и ответе не в JSON;
+* запись повторяется на другом сервере только если запрос заведомо не дошёл до
+  сервера (не удалось соединиться, DNS, сертификат); таймаут или 5xx после
+  отправки команды — это «результат неизвестен», повтор не делается;
+* ответы 4xx (неверные данные, нет доступа) на другой сервер не переносятся.
+
+Выбранный сервер запоминается; на основной клиент возвращается не чаще, чем раз
+в FAILBACK_SECONDS.
+"""
 
 from __future__ import annotations
 
 import asyncio
 import logging
+import time
 
 import aiohttp  # pyright: ignore[reportMissingImports]
 
 from .const import (
+    ACTION_ADD_DEVICE,
     ACTION_CLIMATE_GET_SENSORS,
     ACTION_CLIMATE_MODE,
     ACTION_CLIMATE_ON_OFF,
     ACTION_CLIMATE_RANGE,
     ACTION_CLIMATE_SELECT_SENSOR,
-    ACTION_ADD_DEVICE,
+    ACTION_GET_ALL_DEV,
+    ACTION_GET_BIG_CONTR,
+    ACTION_GET_BIG_DT,
     API_PATH,
+    KNOWN_SERVERS,
 )
 
 _LOGGER = logging.getLogger(__name__)
 
 _REDACT_KEYS = {"login", "password"}
+
+REQUEST_TIMEOUT = 15        # секунд на запрос целиком
+CONNECT_TIMEOUT = 5         # секунд на установку соединения
+FAILBACK_SECONDS = 600      # как часто пробовать вернуться на основной сервер
+
+# Ошибки, после которых запрос заведомо не был обработан сервером.
+_PRE_SEND_ERRORS = tuple(
+    err for err in (
+        aiohttp.ClientConnectorError,
+        getattr(aiohttp, "ConnectionTimeoutError", None),
+    ) if err is not None
+)
 
 
 def _redact(value):
@@ -38,6 +71,35 @@ class KotelApiError(Exception):
     """Ошибка API Kotel."""
 
 
+class _ServerError(KotelApiError):
+    """Сбой конкретного сервера (сеть, таймаут, 5xx, не-JSON).
+
+    pre_send=True — запрос не дошёл до сервера, его безопасно повторить где угодно.
+    """
+
+    def __init__(self, message: str, *, pre_send: bool = False) -> None:
+        super().__init__(message)
+        self.pre_send = pre_send
+
+
+def _normalize_url(url: str) -> str:
+    return url.strip().rstrip("/")
+
+
+def build_servers(base_url: str, fallback_urls) -> list[str]:
+    """Основной адрес + запасные. Без явного списка запасные берутся из KNOWN_SERVERS,
+    но только если основной адрес сам входит в него."""
+    primary = _normalize_url(base_url)
+    servers = [primary]
+    if fallback_urls is None:
+        fallback_urls = KNOWN_SERVERS if primary.lower() in KNOWN_SERVERS else ()
+    for url in fallback_urls:
+        url = _normalize_url(url)
+        if url and url.lower() not in {s.lower() for s in servers}:
+            servers.append(url)
+    return servers
+
+
 class KotelApiClient:
     """Асинхронный клиент для общения с сервером taptop.php."""
 
@@ -48,13 +110,27 @@ class KotelApiClient:
         password: str,
         home_id: str = "",
         session: aiohttp.ClientSession | None = None,
+        fallback_urls=None,
     ):
-        self._base_url = base_url.rstrip("/")
+        self._servers = build_servers(base_url, fallback_urls)
+        self._base_url = self._servers[0]
+        self._active = 0
+        self._switched_at = time.monotonic()
         self._login = login
         self._password = password
         self._home_id = home_id
         self._session = session
         self._owns_session = session is None
+
+    @property
+    def servers(self) -> tuple[str, ...]:
+        """Все адреса сервера: основной первым."""
+        return tuple(self._servers)
+
+    @property
+    def active_url(self) -> str:
+        """Адрес, с которым клиент работает сейчас."""
+        return self._servers[self._active]
 
     async def _get_session(self) -> aiohttp.ClientSession:
         if self._session is None or self._session.closed:
@@ -62,9 +138,31 @@ class KotelApiClient:
             self._owns_session = True
         return self._session
 
-    async def _post(self, payload: dict) -> object:
-        """Отправка POST-запроса к taptop.php (аналог post_action из functions.js)."""
-        url = f"{self._base_url}{API_PATH}"
+    # ------------------------------------------------------------------
+    # Транспорт с переходом между серверами
+    # ------------------------------------------------------------------
+    def _candidates(self) -> list[int]:
+        """Порядок опроса серверов: текущий, затем остальные по кругу."""
+        count = len(self._servers)
+        start = self._active
+        now = time.monotonic()
+        if start != 0 and now - self._switched_at >= FAILBACK_SECONDS:
+            start = 0                      # пора проверить, не вернулся ли основной
+            self._switched_at = now        # и не повторять попытку на каждом запросе
+        return [(start + i) % count for i in range(count)]
+
+    def _mark_ok(self, index: int) -> None:
+        if index == self._active:
+            return
+        previous = self._servers[self._active]
+        self._active = index
+        self._switched_at = time.monotonic()
+        level = logging.INFO if index == 0 else logging.WARNING
+        _LOGGER.log(level, "Работа с сервером %s вместо %s", self._servers[index], previous)
+
+    async def _post_to(self, base_url: str, payload: dict) -> object:
+        """Один запрос к одному серверу. Сбои сервера — _ServerError."""
+        url = f"{base_url}{API_PATH}"
         session = await self._get_session()
         action = payload.get("action")
         _LOGGER.debug("POST %s | action=%s", url, action)
@@ -73,19 +171,54 @@ class KotelApiClient:
                 url,
                 json=payload,
                 headers={"Content-Type": "application/json"},
-                timeout=aiohttp.ClientTimeout(total=15),
+                timeout=aiohttp.ClientTimeout(
+                    total=REQUEST_TIMEOUT, sock_connect=CONNECT_TIMEOUT),
             ) as resp:
+                if resp.status >= 500:
+                    raise _ServerError(f"HTTP {resp.status}")
                 if resp.status != 200:
                     raise KotelApiError(f"HTTP {resp.status}")
                 # Сервер облака может отдавать JSON с другим Content-Type.
                 data = await resp.json(content_type=None)
-                _LOGGER.debug("Response action=%s: %s", action, _redact(data))
-                return data
         except KotelApiError:
             raise
-        except (aiohttp.ClientError, asyncio.TimeoutError, ValueError) as err:
-            raise KotelApiError(f"Ошибка соединения: {err}") from err
+        except _PRE_SEND_ERRORS as err:
+            raise _ServerError(f"Ошибка соединения: {err}", pre_send=True) from err
+        except (aiohttp.ClientError, asyncio.TimeoutError) as err:
+            raise _ServerError(f"Ошибка соединения: {err}") from err
+        except ValueError as err:
+            raise _ServerError(f"Некорректный ответ сервера: {err}") from err
+        if _LOGGER.isEnabledFor(logging.DEBUG):
+            _LOGGER.debug("Response action=%s: %s", action, _redact(data))
+        return data
 
+    async def _post(self, payload: dict, *, idempotent: bool = False) -> object:
+        """Отправка POST-запроса к taptop.php (аналог post_action из functions.js).
+
+        idempotent=True — повтор запроса на другом сервере безопасен (чтение).
+        """
+        errors: list[str] = []
+        for index in self._candidates():
+            base_url = self._servers[index]
+            try:
+                data = await self._post_to(base_url, payload)
+            except _ServerError as err:
+                if len(self._servers) == 1:
+                    raise
+                errors.append(f"{base_url}: {err}")
+                if idempotent or err.pre_send:
+                    continue
+                # Команда могла быть выполнена: на другой сервер не переносим.
+                raise KotelApiError(
+                    "; ".join(errors) + " (результат команды неизвестен, повтор не выполнялся)"
+                ) from err
+            self._mark_ok(index)
+            return data
+        raise KotelApiError("; ".join(errors))
+
+    # ------------------------------------------------------------------
+    # Запросы
+    # ------------------------------------------------------------------
     async def add_temperature_sensor(self, home_id: str | None = None) -> str:
         """Получить новый ID датчика температуры для настройки его Wi-Fi."""
         target_home_id = (home_id or self._home_id).strip()
@@ -119,13 +252,13 @@ class KotelApiClient:
         Возвращает массив устройств type "contr" или "dt".
         """
         payload = {
-            "action": "get_all_dev",
+            "action": ACTION_GET_ALL_DEV,
             "login": self._login,
             "password": self._password,
             "action_value1": self._home_id,
             "action_value2": "",
         }
-        data = await self._post(payload)
+        data = await self._post(payload, idempotent=True)
         if not isinstance(data, list):
             return []
         return data
@@ -136,27 +269,27 @@ class KotelApiClient:
         Аналог post_action(home_id, "get_big_contr", device_id, "", login, pass).
         """
         payload = {
-            "action": "get_big_contr",
+            "action": ACTION_GET_BIG_CONTR,
             "id_name": device_id,
             "login": self._login,
             "password": self._password,
             "action_value1": "",
             "action_value2": "",
         }
-        data = await self._post(payload)
+        data = await self._post(payload, idempotent=True)
         return data if isinstance(data, dict) else {}
 
     async def get_sensor(self, device_id: str) -> dict:
         """Получить детальные данные датчика (action=get_big_dt)."""
         payload = {
-            "action": "get_big_dt",
+            "action": ACTION_GET_BIG_DT,
             "id_name": device_id,
             "login": self._login,
             "password": self._password,
             "action_value1": "",
             "action_value2": "",
         }
-        data = await self._post(payload)
+        data = await self._post(payload, idempotent=True)
         return data if isinstance(data, dict) else {}
 
     async def send_command(
@@ -192,6 +325,8 @@ class KotelApiClient:
         device_id: str,
         value: str | int | float = "",
         range_value: int | float = 0,
+        *,
+        idempotent: bool = False,
     ) -> object:
         """Запрос климат-контроля.
 
@@ -208,7 +343,7 @@ class KotelApiClient:
         }
         if self._home_id:
             payload["userId"] = self._home_id
-        return await self._post(payload)
+        return await self._post(payload, idempotent=idempotent)
 
     async def climate_on_off(self, device_id: str) -> None:
         """Переключить климат-контроль (ВНИМАНИЕ: это переключатель, а не set)."""
@@ -230,7 +365,8 @@ class KotelApiClient:
 
     async def get_climate_sensors(self, device_id: str) -> list[dict]:
         """Список датчиков для выбора: [{"id_name": ..., "name": ...}, ...]."""
-        data = await self._climate_post(ACTION_CLIMATE_GET_SENSORS, device_id)
+        data = await self._climate_post(
+            ACTION_CLIMATE_GET_SENSORS, device_id, idempotent=True)
         sensors = data.get("sensors") if isinstance(data, dict) else None
         if not isinstance(sensors, list):
             return []
