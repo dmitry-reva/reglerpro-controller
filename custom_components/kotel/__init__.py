@@ -9,7 +9,12 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import KotelApiClient
-from .const import CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL, DOMAIN
+from .const import (
+    CONF_FALLBACK_URLS,
+    CONF_SCAN_INTERVAL,
+    DEFAULT_SCAN_INTERVAL,
+    DOMAIN,
+)
 from .coordinator import KotelCoordinator
 from .profiles import KotelProfileManager
 from .services import async_register_services, async_unregister_services
@@ -32,6 +37,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         password=entry.data["password"],
         home_id=entry.data.get("home_id", ""),
         session=async_get_clientsession(hass),
+        # None — автоматически (серверы из KNOWN_SERVERS), список — выбор из «Серверы»
+        fallback_urls=entry.options.get(CONF_FALLBACK_URLS),
     )
 
     scan_interval = entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)

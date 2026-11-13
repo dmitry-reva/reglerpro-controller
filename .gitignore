@@ -13,5 +13,6 @@ venv/
 .tmp_*/
 build/
 dist/
+translations_additions/
 .DS_Store
 Thumbs.db

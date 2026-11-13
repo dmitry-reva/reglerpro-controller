@@ -2,12 +2,22 @@
 DOMAIN = "kotel"
 DEFAULT_SCAN_INTERVAL = 30
 DEFAULT_URL = "https://app.reglerpro.ru"
+# Серверы с одной и той же учётной записью (логин, пароль и номер дома совпадают).
+# Если адрес записи входит в этот список, клиент API при сбое сервера сам
+# переходит на остальные. Адрес не из списка используется как единственный.
+KNOWN_SERVERS = (
+    "https://app.reglerpro.ru",
+    "https://web.reglerpro.ru",
+)
 API_PATH = "/php/taptop.php"
 
 CONF_LOGIN = "login"
 CONF_PASSWORD = "password"
 CONF_HOME_ID = "home_id"
 CONF_SCAN_INTERVAL = "scan_interval"
+# Запасные серверы (список адресов в options). Нет ключа — автоматически по KNOWN_SERVERS,
+# пустой список — переход на другой сервер отключён.
+CONF_FALLBACK_URLS = "fallback_urls"
 
 # Типы устройств
 DEVICE_TYPE_CONTR = "contr"
