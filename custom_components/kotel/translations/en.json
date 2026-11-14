@@ -10,15 +10,25 @@
           "password": "Password",
           "home_id": "Home ID"
         }
+      },
+      "reauth_confirm": {
+        "title": "Reauthenticate ReglerPro",
+        "description": "The server rejected the saved credentials for {login}. Enter the current password.",
+        "data": {
+          "password": "Password"
+        }
       }
     },
     "error": {
       "cannot_connect": "Cannot connect to the server",
       "no_home_id": "No devices found. Specify the home ID",
-      "no_devices": "No devices found for this home ID"
+      "no_devices": "No devices found for this home ID",
+      "invalid_auth": "Wrong login or password",
+      "unexpected_response": "The server returned an unexpected response: {response}"
     },
     "abort": {
-      "already_configured": "This account is already configured."
+      "already_configured": "This account is already configured.",
+      "reauth_successful": "Reauthentication was successful"
     }
   },
   "options": {

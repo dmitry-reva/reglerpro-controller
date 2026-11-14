@@ -10,15 +10,25 @@
           "password": "Пароль",
           "home_id": "ID дома"
         }
+      },
+      "reauth_confirm": {
+        "title": "Повторная авторизация ReglerPro",
+        "description": "Сервер отклонил сохранённые данные для {login}. Введите актуальный пароль.",
+        "data": {
+          "password": "Пароль"
+        }
       }
     },
     "error": {
       "cannot_connect": "Не удалось подключиться к серверу",
       "no_home_id": "Устройства не найдены. Укажите ID дома",
-      "no_devices": "Для этого ID дома устройства не найдены"
+      "no_devices": "Для этого ID дома устройства не найдены",
+      "invalid_auth": "Неверный логин или пароль",
+      "unexpected_response": "Сервер вернул неожиданный ответ: {response}"
     },
     "abort": {
-      "already_configured": "Эта учётная запись уже настроена."
+      "already_configured": "Эта учётная запись уже настроена.",
+      "reauth_successful": "Повторная авторизация выполнена"
     }
   },
   "options": {

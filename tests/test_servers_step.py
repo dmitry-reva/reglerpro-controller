@@ -13,6 +13,11 @@ from types import SimpleNamespace
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import ha_stubs  # noqa: E402
 
+if getattr(ha_stubs, "STUBS_VERSION", 0) < 4:
+    raise RuntimeError(
+        "Устаревший tests/ha_stubs.py (нужна версия заглушек 4 или новее): "
+        "скопируйте ha_stubs.py из последнего релиза рядом с тестами.")
+
 COMPONENT = Path(__file__).resolve().parent.parent / "custom_components" / "kotel"
 PKG = "kotel_under_test"
 if PKG not in sys.modules:
@@ -187,6 +192,7 @@ class SetupPassesServersTests(unittest.IsolatedAsyncioTestCase):
                 captured.update(kwargs)
 
         def stop(*args, **kwargs):
+            captured["coordinator_kwargs"] = kwargs
             raise Stop
 
         module.KotelApiClient = FakeClient
@@ -196,6 +202,10 @@ class SetupPassesServersTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(Stop):
             await module.async_setup_entry(SimpleNamespace(), entry)
         return captured
+
+    async def test_coordinator_gets_config_entry(self):
+        captured = await self.run_setup({})
+        self.assertIn("config_entry", captured["coordinator_kwargs"])      # нужен для reauth
 
     async def test_default_is_automatic(self):
         captured = await self.run_setup({})

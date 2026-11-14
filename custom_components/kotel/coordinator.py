@@ -9,16 +9,25 @@ import math
 import re
 from datetime import timedelta
 
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import (  # type: ignore[import-not-found]
     DataUpdateCoordinator,
     UpdateFailed,
 )
 
-from .api import KotelApiClient, KotelApiError
+from .api import KotelApiClient, KotelApiError, KotelAuthError
 from .const import DEFAULT_SCAN_INTERVAL, DOMAIN, DT_STALE_SECONDS
 from .params_parser import get_params
 
 _LOGGER = logging.getLogger(__name__)
+
+# Сколько отказов в авторизации подряд нужно, чтобы запустить повторную авторизацию,
+# если до этого опрос уже работал (первый запуск — сразу). Один отказ может быть
+# сбоем сервера.
+AUTH_FAILURES_BEFORE_REAUTH = 2
+# Сколько раз подряд принимать пустой список устройств за сбой, если раньше
+# устройства были (дальше — считаем, что дом действительно опустел).
+EMPTY_LIST_TOLERANCE = 3
 
 # Ключи расписания в tstatArr: m3_P1_time, m4_P2_d5_temp, m5_P4_d1_time ...
 _SCHEDULE_KEY_RE = re.compile(r"^m[345]_P[1-4]_(d\d_)?(time|temp)$")
@@ -112,14 +121,29 @@ class KotelCoordinator(DataUpdateCoordinator):
     """Координатор, опрашивающий сервер taptop.php по расписанию."""
 
     def __init__(self, hass, api: KotelApiClient,
-                 scan_interval: int = DEFAULT_SCAN_INTERVAL):
+                 scan_interval: int = DEFAULT_SCAN_INTERVAL, config_entry=None):
+        # config_entry нужен для ConfigEntryAuthFailed (запуск повторной авторизации)
+        extra = {"config_entry": config_entry} if config_entry is not None else {}
         super().__init__(
             hass,
             _LOGGER,
             name=DOMAIN,
             update_interval=timedelta(seconds=scan_interval),
+            **extra,
         )
         self._api = api
+        self._had_success = False
+        self._auth_failures = 0
+        self._empty_streak = 0
+
+    def _auth_error(self, err: KotelAuthError) -> Exception:
+        """Исключение для отказа в авторизации: повторная авторизация или UpdateFailed."""
+        self._auth_failures += 1
+        if not self._had_success or self._auth_failures >= AUTH_FAILURES_BEFORE_REAUTH:
+            return ConfigEntryAuthFailed(f"Сервер отклонил учётные данные: {err}")
+        return UpdateFailed(
+            f"Сервер отклонил учётные данные ({self._auth_failures} из "
+            f"{AUTH_FAILURES_BEFORE_REAUTH}): {err}")
 
     async def _async_update_data(self) -> dict:
         """Получить свежие данные всех устройств.
@@ -130,8 +154,20 @@ class KotelCoordinator(DataUpdateCoordinator):
         """
         try:
             devices = await self._api.get_all_devices()
+        except KotelAuthError as err:
+            raise self._auth_error(err) from err
         except KotelApiError as err:
             raise UpdateFailed(f"Не удалось получить список устройств: {err}") from err
+
+        if devices:
+            self._empty_streak = 0
+        elif self._had_success and self.data:
+            # раньше устройства были, а теперь список пуст: чаще всего это сбой облака
+            self._empty_streak += 1
+            if self._empty_streak <= EMPTY_LIST_TOLERANCE:
+                raise UpdateFailed(
+                    "Сервер вернул пустой список устройств "
+                    f"({self._empty_streak} из {EMPTY_LIST_TOLERANCE})")
 
         devices = [dev for dev in devices if isinstance(dev, dict)]
         controllers = [
@@ -149,6 +185,8 @@ class KotelCoordinator(DataUpdateCoordinator):
         details_by_id: dict[str, dict] = {}
         for dev, result in zip(controllers, results):
             dev_id = dev["id_name"]
+            if isinstance(result, KotelAuthError):
+                raise self._auth_error(result) from result
             if isinstance(result, Exception):
                 if isinstance(result, KotelApiError):
                     _LOGGER.warning(
@@ -224,4 +262,6 @@ class KotelCoordinator(DataUpdateCoordinator):
             if precise is not None:
                 climate["sensor_temp"] = precise
 
+        self._had_success = True
+        self._auth_failures = 0
         return result_data
