@@ -93,10 +93,19 @@ class AuthHintTests(unittest.TestCase):
     def test_hints(self):
         looks = api_mod.looks_like_auth_failure
         for yes in ("Wrong password", "Authorization required", {"error": "неверный логин"},
-                    {"wrong_login": True}, "Доступ запрещён"):
+                    {"wrong_login": True}, "Доступ запрещён", "login_pass_in_db_ok - NO"):
             self.assertTrue(looks(yes), yes)
-        for no in ([], 0, None, False, "ok", "0", {"status": "error"}, {"a": 1}, ["login"]):
+        for no in ([], 0, None, False, "ok", "0", {"status": "error"}, {"a": 1}, ["login"],
+                   "login_pass_in_db_ok - YES"):
             self.assertFalse(looks(no), no)
+
+    def test_exact_server_signature(self):
+        rejected = api_mod.is_login_rejected
+        for yes in ("login_pass_in_db_ok - NO", "login_pass_in_db_ok - no", 'x login_pass_in_db_ok-NO'):
+            self.assertTrue(rejected(yes), yes)
+        for no in ("login_pass_in_db_ok - YES", "login_pass_in_db_ok - OK", "NO", None, [],
+                   {"a": "login_pass_in_db_ok - NO"}):
+            self.assertFalse(rejected(no), no)
 
 
 class ShapeTests(unittest.IsolatedAsyncioTestCase):
@@ -122,6 +131,31 @@ class ShapeTests(unittest.IsolatedAsyncioTestCase):
             c, s = client({APP: ("ok", answer), WEB: ("ok", DEVICES)})
             with self.assertRaises(KotelAuthError):
                 await c.get_all_devices()
+            self.assertEqual(s.bases(), [APP])
+
+    async def test_real_server_answer_for_wrong_password(self):
+        c, s = client({APP: ("ok", "login_pass_in_db_ok - NO"), WEB: ("ok", DEVICES)})
+        with self.assertRaises(KotelAuthError) as ctx:
+            await c.get_all_devices()
+        self.assertEqual(s.bases(), [APP])                      # на другой сервер не переходим
+        # логин и пароль в выдержке скрыты (у тестового клиента пароль «pass»)
+        self.assertIn("_in_db_ok - NO", str(ctx.exception))
+
+    async def test_login_ok_string_is_not_an_auth_failure(self):
+        c, _ = client({"https://example.org": ("ok", "login_pass_in_db_ok - YES")},
+                      "https://example.org")
+        with self.assertRaises(KotelResponseError) as ctx:
+            await c.get_all_devices()
+        self.assertNotIsInstance(ctx.exception, KotelAuthError)
+
+    async def test_write_with_wrong_password_is_not_silently_ok(self):
+        calls = (lambda c: c.send_command("start__", "c1"),
+                 lambda c: c.climate_on_off("c1"),
+                 lambda c: c.add_temperature_sensor())
+        for call in calls:
+            c, s = client({APP: ("ok", "login_pass_in_db_ok - NO"), WEB: ("ok", {})})
+            with self.assertRaises(KotelAuthError):
+                await call(c)
             self.assertEqual(s.bases(), [APP])
 
     async def test_http_401_403_are_auth_errors_without_failover(self):
@@ -236,6 +270,15 @@ class CoordinatorAuthTests(unittest.IsolatedAsyncioTestCase):
             with self.assertRaises(UpdateFailed) as ctx:
                 await coord._async_update_data()
             self.assertNotIsInstance(ctx.exception, ConfigEntryAuthFailed)
+
+    async def test_message_does_not_repeat_the_phrase(self):
+        phrase = "Сервер отклонил учётные данные"
+        for answer in (("ok", "login_pass_in_db_ok - NO"), ("status", 401)):
+            c, _ = client({APP: answer, WEB: answer})
+            coord = coordinator(c)
+            with self.assertRaises(ConfigEntryAuthFailed) as ctx:
+                await coord._async_update_data()
+            self.assertEqual(str(ctx.exception).count(phrase), 1, str(ctx.exception))
 
     async def test_config_entry_is_passed_to_base_class(self):
         entry = SimpleNamespace()
@@ -369,14 +412,15 @@ class ReauthFlowTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["errors"], {"base": "unexpected_response"})
         self.assertEqual(result["description_placeholders"]["response"], "dict: {'a': 1}")
 
-    async def test_new_password_is_saved_and_listener_reloads_once(self):
+    async def test_new_password_is_saved_and_entry_is_reloaded_explicitly(self):
         FakeCheckApi.result = DEVICES
         flow, entry, calls = make_flow()
         result = await flow.async_step_reauth_confirm({"password": "new"})
         self.assertEqual(result, {"type": "abort", "reason": "reauth_successful"})
         self.assertEqual(calls.update, [{**entry.data, "password": "new"}])
         self.assertEqual(calls.update[0]["login"], "u")              # логин не менялся
-        self.assertEqual(calls.reload, [])                           # перезагрузит слушатель записи
+        # слушателя может не быть (первый опрос закончился отказом) — перезагрузка явная
+        self.assertEqual(calls.reload, ["E1"])
 
     async def test_unchanged_password_still_reloads_the_entry(self):
         FakeCheckApi.result = DEVICES

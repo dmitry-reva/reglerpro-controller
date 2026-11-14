@@ -216,10 +216,12 @@ class KotelConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data = {**entry.data, "password": user_input["password"]}
             error, response = await _check_credentials(self.hass, data)
             if error is None:
-                # После отказа в авторизации опрос остановлен: запись нужно
-                # перезагрузить, даже если пароль остался прежним.
-                if not self.hass.config_entries.async_update_entry(entry, data=data):
-                    self.hass.config_entries.async_schedule_reload(entry.entry_id)
+                # Перезагружаем запись явно, а не через слушатель изменений: если
+                # первый опрос закончился отказом, слушателя ещё нет, а после отказа
+                # при работе опрос остановлен. Слушатель на смену пароля не реагирует
+                # (см. _reload_key в __init__.py), поэтому перезагрузка одна.
+                self.hass.config_entries.async_update_entry(entry, data=data)
+                self.hass.config_entries.async_schedule_reload(entry.entry_id)
                 return self.async_abort(reason="reauth_successful")
             errors["base"] = error
             placeholders["response"] = response

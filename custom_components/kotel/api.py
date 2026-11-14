@@ -21,6 +21,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 import time
 
 import aiohttp  # pyright: ignore[reportMissingImports]
@@ -97,9 +98,27 @@ _AUTH_HINTS = (
 )
 
 
+# Точный ответ сервера на неверный логин или пароль (получен на живом сервере):
+# строка "login_pass_in_db_ok - NO".
+_LOGIN_CHECK_RE = re.compile(r"login_pass_in_db_ok\s*-\s*(\w+)", re.IGNORECASE)
+
+
+def is_login_rejected(data) -> bool:
+    """Сервер ответил, что пара логин/пароль не найдена (точный признак)."""
+    if not isinstance(data, str):
+        return False
+    match = _LOGIN_CHECK_RE.search(data)
+    return match is not None and match.group(1).lower() == "no"
+
+
 def looks_like_auth_failure(data) -> bool:
     """Похож ли неожиданный ответ (строка или словарь) на отказ в авторизации."""
     if isinstance(data, str):
+        match = _LOGIN_CHECK_RE.search(data)
+        if match is not None:
+            # служебная строка проверки пароля: отказ только при «NO», иначе это
+            # какой-то другой ответ (его покажет KotelResponseError)
+            return match.group(1).lower() == "no"
         texts = [data]
     elif isinstance(data, dict):
         texts = [str(key) for key in data] + [v for v in data.values() if isinstance(v, str)]
@@ -240,7 +259,7 @@ class KotelApiClient:
                 if resp.status >= 500:
                     raise _ServerError(f"HTTP {resp.status}")
                 if resp.status in (401, 403):
-                    raise KotelAuthError(f"HTTP {resp.status}")
+                    raise KotelAuthError(f"Сервер отклонил учётные данные (HTTP {resp.status})")
                 if resp.status != 200:
                     raise KotelApiError(f"HTTP {resp.status}")
                 # Сервер облака может отдавать JSON с другим Content-Type.
@@ -255,6 +274,10 @@ class KotelApiClient:
             raise _ServerError(f"Некорректный ответ сервера: {err}") from err
         if _LOGGER.isEnabledFor(logging.DEBUG):
             _LOGGER.debug("Response action=%s: %s", action, _redact(data))
+        if is_login_rejected(data):
+            # команда записи с неверным паролем не выполнена: молча «успешной» её считать нельзя
+            raise KotelAuthError(
+                f"Сервер отклонил учётные данные: {self._describe(data)}")
         if expect is not None and not isinstance(data, expect):
             snippet = self._describe(data)
             if looks_like_auth_failure(data):

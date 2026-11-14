@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 
 from homeassistant.config_entries import ConfigEntry
@@ -24,9 +25,27 @@ _LOGGER = logging.getLogger(__name__)
 PLATFORMS = ("sensor", "number", "switch", "climate", "select", "text", "button")
 
 
-async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Перезагрузить запись при изменении параметров (например, интервала)."""
-    await hass.config_entries.async_reload(entry.entry_id)
+def _reload_key(entry: ConfigEntry) -> str:
+    """Параметры, от которых зависит работа записи, без пароля.
+
+    Пароль не входит: после повторной авторизации запись перезагружает сам поток
+    (слушателя может не быть, если первый опрос закончился отказом), иначе
+    перезагрузка выполнялась бы дважды.
+    """
+    data = {key: value for key, value in entry.data.items() if key != "password"}
+    return json.dumps({"data": data, "options": dict(entry.options)},
+                      sort_keys=True, default=str)
+
+
+def _make_update_listener(entry: ConfigEntry):
+    """Слушатель: перезагрузить запись при изменении параметров (интервал, серверы)."""
+    initial = _reload_key(entry)
+
+    async def _async_update_listener(hass: HomeAssistant, updated: ConfigEntry) -> None:
+        if _reload_key(updated) != initial:
+            await hass.config_entries.async_reload(updated.entry_id)
+
+    return _async_update_listener
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -59,7 +78,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "coordinator": coordinator,
     }
 
-    entry.async_on_unload(entry.add_update_listener(_async_update_listener))
+    entry.async_on_unload(entry.add_update_listener(_make_update_listener(entry)))
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     async_register_services(hass)

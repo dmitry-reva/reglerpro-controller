@@ -140,10 +140,9 @@ class KotelCoordinator(DataUpdateCoordinator):
         """Исключение для отказа в авторизации: повторная авторизация или UpdateFailed."""
         self._auth_failures += 1
         if not self._had_success or self._auth_failures >= AUTH_FAILURES_BEFORE_REAUTH:
-            return ConfigEntryAuthFailed(f"Сервер отклонил учётные данные: {err}")
+            return ConfigEntryAuthFailed(str(err))
         return UpdateFailed(
-            f"Сервер отклонил учётные данные ({self._auth_failures} из "
-            f"{AUTH_FAILURES_BEFORE_REAUTH}): {err}")
+            f"{err} (отказ {self._auth_failures} из {AUTH_FAILURES_BEFORE_REAUTH})")
 
     async def _async_update_data(self) -> dict:
         """Получить свежие данные всех устройств.
