@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from homeassistant.components.text import TextEntity, TextMode
 
 from .const import DEVICE_TYPE_CONTR, DOMAIN
 from .coordinator import KotelCoordinator
 from .entity import KotelEntity
 from .profiles import ALL_KINDS, KIND_BOILER, MAX_NAME_LENGTH
+
+if TYPE_CHECKING:  # pragma: no cover - только для типов
+    from .runtime import KotelConfigEntry
 
 # тип профиля -> (translation_key, суффикс unique_id); для котла суффикс прежний
 PROFILE_NAMES = {
@@ -16,8 +21,12 @@ PROFILE_NAMES = {
 }
 
 
-async def async_setup_entry(hass, entry, async_add_entities):
-    coordinator: KotelCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+# Ввод имени профиля — локальное действие, но платформа записи ограничена одним вызовом
+PARALLEL_UPDATES = 1
+
+
+async def async_setup_entry(hass, entry: KotelConfigEntry, async_add_entities):
+    coordinator = entry.runtime_data.coordinator
     manager = hass.data[DOMAIN]["_profiles"]
     async_add_entities(
         KotelProfileNameText(coordinator, dev_id, manager, kind)

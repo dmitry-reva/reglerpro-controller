@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING
 
 from homeassistant.components.number import NumberEntity, NumberMode
 from homeassistant.const import PERCENTAGE, UnitOfTemperature, UnitOfTime
@@ -14,12 +15,14 @@ from .const import (
     CLIMATE_TEMP_MAX,
     CLIMATE_TEMP_MIN,
     CLIMATE_TEMP_STEP,
-    DOMAIN,
     SCHEDULE_GROUPS,
     SCHEDULE_PERIODS,
 )
-from .coordinator import KotelCoordinator, to_number
+from .coordinator import to_number
 from .entity import KotelEntity
+
+if TYPE_CHECKING:  # pragma: no cover - только для типов
+    from .runtime import KotelConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -57,8 +60,12 @@ NUMBER_PARAMS = (
 )
 
 
-async def async_setup_entry(hass, entry, async_add_entities):
-    coordinator: KotelCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+# Записи параметров котла уходят в облако по одной
+PARALLEL_UPDATES = 1
+
+
+async def async_setup_entry(hass, entry: KotelConfigEntry, async_add_entities):
+    coordinator = entry.runtime_data.coordinator
     entities = []
 
     for dev_id, dev_data in coordinator.data.items():
@@ -66,7 +73,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
             continue
         for key, translation_key, min_val, max_val, step, unit, category in NUMBER_PARAMS:
             entities.append(KotelNumberEntity(
-                coordinator, dev_id, entry.entry_id,
+                coordinator, dev_id,
                 key, translation_key, min_val, max_val, step, unit, category,
             ))
 
@@ -78,7 +85,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
             for period in SCHEDULE_PERIODS:
                 for kind in ("time", "temp"):
                     entities.append(KotelScheduleNumber(
-                        coordinator, dev_id, entry.entry_id,
+                        coordinator, dev_id,
                         template, period, kind,
                     ))
 
@@ -88,14 +95,13 @@ async def async_setup_entry(hass, entry, async_add_entities):
 class KotelNumberEntity(KotelEntity, NumberEntity):
     """Регулятор числового параметра котла."""
 
-    def __init__(self, coordinator, dev_id, entry_id, key, translation_key,
+    def __init__(self, coordinator, dev_id, key, translation_key,
                  min_val, max_val, step, unit, category):
         super().__init__(
             coordinator, dev_id,
             unique_suffix=f"{key}_set",
             translation_key=translation_key,
         )
-        self._entry_id = entry_id
         self._key = key
         self._attr_native_min_value = min_val
         self._attr_native_max_value = max_val
@@ -111,7 +117,7 @@ class KotelNumberEntity(KotelEntity, NumberEntity):
         return (data.get("params") or {}).get(self._key)
 
     async def async_set_native_value(self, value):
-        api = self.coordinator.hass.data[DOMAIN][self._entry_id]["api"]
+        api = self.coordinator.api
         try:
             await api.send_command(self._key, self._dev_id, value)
         except KotelApiError as err:
@@ -128,7 +134,7 @@ class KotelScheduleNumber(KotelNumberEntity):
     последний — до 23 ч.
     """
 
-    def __init__(self, coordinator, dev_id, entry_id, template, period, kind):
+    def __init__(self, coordinator, dev_id, template, period, kind):
         self._template = template
         self._period = period
         self._kind = kind
@@ -141,7 +147,7 @@ class KotelScheduleNumber(KotelNumberEntity):
 UnitOfTemperature.CELSIUS,
             )
         super().__init__(
-            coordinator, dev_id, entry_id, key,
+            coordinator, dev_id, key,
             f"schedule_{key.lower()}",
             min_val, max_val, step, unit, EntityCategory.CONFIG,
         )
@@ -179,7 +185,7 @@ UnitOfTemperature.CELSIUS,
     async def async_set_native_value(self, value):
         value = float(value)
         value = int(value) if self._kind == "time" or value.is_integer() else value
-        api = self.coordinator.hass.data[DOMAIN][self._entry_id]["api"]
+        api = self.coordinator.api
         try:
             await api.set_climate_value(self._dev_id, self._key, value)
         except KotelApiError as err:

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from typing import TYPE_CHECKING
 
 from homeassistant.components.climate import (
     ClimateEntity,
@@ -32,7 +33,6 @@ from .const import (
     CLIMATE_TEMP_MAX,
     CLIMATE_TEMP_MIN,
     CLIMATE_TEMP_STEP,
-    DOMAIN,
     MODE_BY_PRESET,
     PRESET_BY_MODE,
     SCHEDULE_MODES,
@@ -42,13 +42,20 @@ from .const import (
 from .coordinator import KotelCoordinator, to_number
 from .entity import KotelEntity
 
+if TYPE_CHECKING:  # pragma: no cover - только для типов
+    from .runtime import KotelConfigEntry
+
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_setup_entry(hass, entry, async_add_entities):
-    coordinator: KotelCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+# Команды климата отправляются по одной (и внутри сущности — под своей блокировкой)
+PARALLEL_UPDATES = 1
+
+
+async def async_setup_entry(hass, entry: KotelConfigEntry, async_add_entities):
+    coordinator = entry.runtime_data.coordinator
     async_add_entities(
-        KotelClimate(coordinator, dev_id, entry.entry_id)
+        KotelClimate(coordinator, dev_id)
         for dev_id, dev_data in coordinator.data.items()
         if dev_data["type"] == "contr"
     )
@@ -74,13 +81,12 @@ class KotelClimate(KotelEntity, ClimateEntity):
     # 48 значений расписания в базу истории не пишем: они остаются в состоянии
     _unrecorded_attributes = frozenset({"schedule"})
 
-    def __init__(self, coordinator: KotelCoordinator, dev_id: str, entry_id: str):
+    def __init__(self, coordinator: KotelCoordinator, dev_id: str):
         super().__init__(
             coordinator, dev_id,
             unique_suffix="climate",
             translation_key="thermostat",
         )
-        self._entry_id = entry_id
         self._lock = asyncio.Lock()   # команды климата выполняются строго по очереди
 
     # ------------------------------------------------------------------
@@ -96,7 +102,7 @@ class KotelClimate(KotelEntity, ClimateEntity):
 
     @property
     def _api(self):
-        return self.coordinator.hass.data[DOMAIN][self._entry_id]["api"]
+        return self.coordinator.api
 
     # ------------------------------------------------------------------
     # Состояние

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import time
+from typing import TYPE_CHECKING
 
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.core import callback
@@ -11,9 +12,10 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.event import async_call_later
 
 from .api import KotelApiError
-from .const import DOMAIN
-from .coordinator import KotelCoordinator
 from .entity import KotelEntity
+
+if TYPE_CHECKING:  # pragma: no cover - только для типов
+    from .runtime import KotelConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -22,10 +24,14 @@ _LOGGER = logging.getLogger(__name__)
 PENDING_SECONDS = 15
 
 
-async def async_setup_entry(hass, entry, async_add_entities):
-    coordinator: KotelCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+# Команды старт/стоп уходят в облако по одной
+PARALLEL_UPDATES = 1
+
+
+async def async_setup_entry(hass, entry: KotelConfigEntry, async_add_entities):
+    coordinator = entry.runtime_data.coordinator
     async_add_entities(
-        KotelStartStopSwitch(coordinator, dev_id, entry.entry_id)
+        KotelStartStopSwitch(coordinator, dev_id)
         for dev_id, dev_data in coordinator.data.items()
         if dev_data["type"] == "contr"
     )
@@ -36,13 +42,12 @@ class KotelStartStopSwitch(KotelEntity, SwitchEntity):
 
     _attr_icon = "mdi:power"
 
-    def __init__(self, coordinator, dev_id, entry_id):
+    def __init__(self, coordinator, dev_id):
         super().__init__(
             coordinator, dev_id,
             unique_suffix="start_stop",
             translation_key="start_stop",
         )
-        self._entry_id = entry_id
         self._pending: bool | None = None      # ожидаемое состояние после команды
         self._pending_until = 0.0
         self._cancel_timer = None
@@ -71,7 +76,7 @@ class KotelStartStopSwitch(KotelEntity, SwitchEntity):
         await self._send_command("stop___", False)
 
     async def _send_command(self, action, target_state: bool):
-        api = self.coordinator.hass.data[DOMAIN][self._entry_id]["api"]
+        api = self.coordinator.api
         try:
             await api.send_command(action, self._dev_id)
         except KotelApiError as err:

@@ -54,6 +54,9 @@
     "error": {
       "invalid_url": "Адрес сервера должен начинаться с https:// (или http://): {server}",
       "server_check_failed": "Сервер {server} не ответил: {error}"
+    },
+    "abort": {
+      "not_loaded": "Интеграция не загружена. Перезагрузите её и повторите."
     }
   }
 }

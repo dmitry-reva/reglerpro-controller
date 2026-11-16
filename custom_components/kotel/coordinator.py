@@ -136,6 +136,11 @@ class KotelCoordinator(DataUpdateCoordinator):
         self._auth_failures = 0
         self._empty_streak = 0
 
+    @property
+    def api(self) -> KotelApiClient:
+        """Клиент API этой записи: сущности отправляют команды через него."""
+        return self._api
+
     def _auth_error(self, err: KotelAuthError) -> Exception:
         """Исключение для отказа в авторизации: повторная авторизация или UpdateFailed."""
         self._auth_failures += 1
