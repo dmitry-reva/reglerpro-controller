@@ -1,6 +1,6 @@
 import pathlib
-new = pathlib.Path(r"C:\temp\kotel_1.5.2\custom_components\kotel")
-old = pathlib.Path("custom_components/kotel")
+new = pathlib.Path(r"C:\temp\kotel\custom_components\kotel")
+old = pathlib.Path(r".\custom_components\kotel")
 for f in sorted(new.glob("*")):
     a = f.read_bytes().replace(b"\r\n", b"\n")
     b = (old / f.name).read_bytes().replace(b"\r\n", b"\n") if (old / f.name).exists() else None
