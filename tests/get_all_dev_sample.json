@@ -1,0 +1,33 @@
+[
+ {
+  "type": "contr",
+  "id_name": "1000000000001",
+  "name": "Дом",
+  "params": "[47,0,0,45,1,291023,0,0,0,0,20,20,0,45,0,35,0,24,60,600,20,60,1,250,0,1,6,1,0,0]",
+  "mqtt_online": "1",
+  "mqtt_offline_time": 15637,
+  "vers": "423",
+  "tstatArr": "{\"tstatDtId\":\"2000000000002\",\"tstatOn\":1,\"tstatTemp\":23.5,\"m3_P1_time\":0,\"m3_P2_time\":5,\"m3_P3_time\":9,\"m3_P4_time\":18,\"m3_P1_temp\":23,\"m3_P2_temp\":24.5,\"m3_P3_temp\":23.5,\"m3_P4_temp\":24,\"tstat_mode\":4,\"m5_P1_d4_time\":10,\"m4_P1_d5_time\":0,\"m4_P1_d5_temp\":23,\"m4_P2_d5_time\":5,\"m4_P2_d5_temp\":24.5,\"m4_P3_d5_time\":9,\"m4_P3_d5_temp\":23.5,\"m4_P4_d5_time\":18,\"m4_P4_d5_temp\":24,\"m4_P1_d2_time\":0,\"m4_P1_d2_temp\":23,\"m4_P2_d2_time\":5,\"m4_P2_d2_temp\":25,\"m4_P3_d2_time\":8,\"m4_P3_d2_temp\":24.5,\"m4_P4_d2_time\":21,\"m4_P4_d2_temp\":24}",
+  "tempUstNowTstate": {
+   "period": 1,
+   "textPeriodOn": "📅 - По расписанию 5/2\n",
+   "temp": 24.5
+  },
+  "temp_dt_ust": 24.5,
+  "textPeriodOn": "📅 - По расписанию 5/2\n",
+  "sensor_name": "Холл",
+  "sensor_temp": "24.5"
+ },
+ {
+  "type": "dt",
+  "id_name": "2000000000002",
+  "name": "Холл",
+  "temp": "24.5",
+  "vers": "332",
+  "time": 172,
+  "korect_dt": "0"
+ },
+ {
+  "time_for_graf": "[\"12:40\",\"13:00\"]"
+ }
+]

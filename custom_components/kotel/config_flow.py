@@ -37,6 +37,7 @@ from .api import (
     KotelApiError,
     KotelAuthError,
     KotelResponseError,
+    KotelTimeoutError,
     build_servers,
 )
 
@@ -78,6 +79,9 @@ async def _check_credentials(hass, data) -> tuple[str | None, str]:
         return "invalid_auth", ""
     except KotelResponseError as err:
         return "unexpected_response", err.snippet
+    except KotelTimeoutError:
+        # при неверном номере дома у пользователя без домов сервер не отвечает вовсе
+        return "no_response", ""
     except KotelApiError:
         return "cannot_connect", ""
     if devices:

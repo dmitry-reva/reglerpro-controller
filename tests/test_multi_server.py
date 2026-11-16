@@ -138,10 +138,16 @@ class ReadFailoverTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn(WEB, message)
 
     async def test_single_server_keeps_original_error(self):
-        c, _ = client({"https://example.org": ("timeout",)}, "https://example.org")
+        c, _ = client({"https://example.org": ("connect",)}, "https://example.org")
         with self.assertRaises(api_mod.KotelApiError) as ctx:
             await c.get_all_devices()
         self.assertTrue(str(ctx.exception).startswith("Ошибка соединения"))
+
+    async def test_single_server_timeout_has_its_own_message(self):
+        c, _ = client({"https://example.org": ("timeout",)}, "https://example.org")
+        with self.assertRaises(api_mod.KotelTimeoutError) as ctx:
+            await c.get_all_devices()
+        self.assertTrue(str(ctx.exception).startswith("Нет ответа от сервера"))
 
     async def test_climate_sensor_list_is_a_read(self):
         c, s = client({APP: ("timeout",), WEB: ("ok", {"sensors": [{"id_name": "d1"}]})})

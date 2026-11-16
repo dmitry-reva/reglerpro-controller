@@ -24,7 +24,8 @@
       "no_home_id": "No devices found. Specify the home ID",
       "no_devices": "No devices found for this home ID",
       "invalid_auth": "Wrong login or password",
-      "unexpected_response": "The server returned an unexpected response: {response}"
+      "unexpected_response": "The server returned an unexpected response: {response}",
+      "no_response": "The server did not respond. If the Home ID is wrong, the server may not answer at all: check the Home ID, login and password."
     },
     "abort": {
       "already_configured": "This account is already configured.",

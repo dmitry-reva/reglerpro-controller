@@ -77,6 +77,14 @@ class KotelAuthError(KotelApiError):
     """Сервер отклонил учётные данные (HTTP 401/403 или ответ, похожий на отказ)."""
 
 
+class KotelTimeoutError(KotelApiError):
+    """Сервер не ответил за отведённое время (все серверы).
+
+    Для этой учётной записи так бывает, если пользователь не состоит ни в одном
+    доме, а в запросе указан несуществующий номер дома: сервер не отвечает вовсе.
+    """
+
+
 class KotelResponseError(KotelApiError):
     """Ответ сервера имеет неожиданный вид (не тот тип данных).
 
@@ -134,9 +142,10 @@ class _ServerError(KotelApiError):
     pre_send=True — запрос не дошёл до сервера, его безопасно повторить где угодно.
     """
 
-    def __init__(self, message: str, *, pre_send: bool = False) -> None:
+    def __init__(self, message: str, *, pre_send: bool = False, timeout: bool = False) -> None:
         super().__init__(message)
         self.pre_send = pre_send
+        self.timeout = timeout          # сервер принял запрос, но не ответил вовремя
 
 
 class _BadResponse(_ServerError):
@@ -267,9 +276,14 @@ class KotelApiClient:
         except KotelApiError:
             raise
         except _PRE_SEND_ERRORS as err:
-            raise _ServerError(f"Ошибка соединения: {err}", pre_send=True) from err
-        except (aiohttp.ClientError, asyncio.TimeoutError) as err:
-            raise _ServerError(f"Ошибка соединения: {err}") from err
+            # str() таймаута пустой, поэтому добавляем имя класса
+            raise _ServerError(
+                f"Ошибка соединения: {str(err) or type(err).__name__}", pre_send=True) from err
+        except asyncio.TimeoutError as err:
+            raise _ServerError(
+                f"Нет ответа от сервера за {REQUEST_TIMEOUT} с", timeout=True) from err
+        except aiohttp.ClientError as err:
+            raise _ServerError(f"Ошибка соединения: {str(err) or type(err).__name__}") from err
         except ValueError as err:
             raise _ServerError(f"Некорректный ответ сервера: {err}") from err
         if _LOGGER.isEnabledFor(logging.DEBUG):
@@ -303,6 +317,8 @@ class KotelApiClient:
                 if len(self._servers) == 1:
                     if isinstance(err, _BadResponse):
                         raise KotelResponseError(str(err), err.snippet) from err
+                    if err.timeout and idempotent:
+                        raise KotelTimeoutError(str(err)) from err
                     raise
                 errors.append(f"{base_url}: {err}")
                 failures.append(err)
@@ -317,6 +333,8 @@ class KotelApiClient:
         message = "; ".join(errors)
         if failures and all(isinstance(err, _BadResponse) for err in failures):
             raise KotelResponseError(message, failures[0].snippet)
+        if failures and all(err.timeout for err in failures):
+            raise KotelTimeoutError(message)
         raise KotelApiError(message)
 
     # ------------------------------------------------------------------

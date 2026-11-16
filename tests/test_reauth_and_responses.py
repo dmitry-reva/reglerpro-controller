@@ -64,6 +64,10 @@ class FakeSession:
             raise aiohttp.ClientConnectorError("нет соединения")
         if kind == "timeout":
             raise asyncio.TimeoutError()
+        if kind == "connect_timeout":
+            raise aiohttp.ConnectionTimeoutError()
+        if kind == "client_error":
+            raise aiohttp.ClientError()
         if kind == "status":
             return FakeResponse(status=rest[0])
         if kind == "badjson":
@@ -87,6 +91,7 @@ UpdateFailed = sys.modules["homeassistant.helpers.update_coordinator"].UpdateFai
 KotelApiError = api_mod.KotelApiError
 KotelAuthError = api_mod.KotelAuthError
 KotelResponseError = api_mod.KotelResponseError
+KotelTimeoutError = api_mod.KotelTimeoutError
 
 
 class AuthHintTests(unittest.TestCase):
@@ -201,6 +206,41 @@ class ShapeTests(unittest.IsolatedAsyncioTestCase):
             await c.get_controller("c1")
         c, _ = client({"https://example.org": ("ok", {"params": "x"})}, "https://example.org")
         self.assertEqual(await c.get_controller("c1"), {"params": "x"})
+
+    async def test_hanging_servers_give_a_timeout_error(self):
+        # верный логин, пользователь без домов, несуществующий дом: сервер не отвечает
+        c, s = client({APP: ("timeout",), WEB: ("timeout",)})
+        with self.assertRaises(KotelTimeoutError) as ctx:
+            await c.get_all_devices()
+        self.assertEqual(s.bases(), [APP, WEB])
+        self.assertIn("Нет ответа от сервера", str(ctx.exception))
+
+    async def test_single_hanging_server_gives_a_timeout_error(self):
+        c, _ = client({"https://example.org": ("timeout",)}, "https://example.org")
+        with self.assertRaises(KotelTimeoutError):
+            await c.get_all_devices()
+
+    async def test_timeout_plus_other_failure_is_generic(self):
+        c, _ = client({APP: ("timeout",), WEB: ("connect",)})
+        with self.assertRaises(KotelApiError) as ctx:
+            await c.get_all_devices()
+        self.assertNotIsInstance(ctx.exception, KotelTimeoutError)
+
+    async def test_write_timeout_is_not_reported_as_plain_timeout(self):
+        c, s = client({APP: ("timeout",), WEB: ("ok", {})})
+        with self.assertRaises(KotelApiError) as ctx:
+            await c.send_command("start__", "c1")
+        self.assertNotIsInstance(ctx.exception, KotelTimeoutError)
+        self.assertEqual(s.bases(), [APP])
+
+    async def test_error_messages_are_never_empty(self):
+        for kind in ("connect_timeout", "client_error"):
+            c, _ = client({"https://example.org": (kind,)}, "https://example.org")
+            with self.assertRaises(KotelApiError) as ctx:
+                await c.get_all_devices()
+            text = str(ctx.exception)
+            self.assertFalse(text.endswith(": "), text)
+            self.assertIn("Error", text)
 
     async def test_write_responses_stay_lenient(self):
         c, _ = client({APP: ("ok", "ok"), WEB: ("ok", "ok")})
@@ -346,6 +386,7 @@ class CheckCredentialsTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await self.check(KotelAuthError("x")), ("invalid_auth", ""))
         self.assertEqual(await self.check(KotelResponseError("x", "dict: {}")),
                          ("unexpected_response", "dict: {}"))
+        self.assertEqual(await self.check(KotelTimeoutError("x")), ("no_response", ""))
         self.assertEqual(await self.check(KotelApiError("x")), ("cannot_connect", ""))
         self.assertEqual(await self.check([]), ("no_devices", ""))
         self.assertEqual(await self.check([], home_id=""), ("no_home_id", ""))
@@ -453,6 +494,7 @@ class StringsTests(unittest.TestCase):
         self.assertIn("{login}", step["description"])
         self.assertIn("password", step["data"])
         self.assertIn("invalid_auth", config["error"])
+        self.assertIn("no_response", config["error"])
         self.assertIn("{response}", config["error"]["unexpected_response"])
         self.assertIn("reauth_successful", config["abort"])
 
