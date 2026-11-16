@@ -13,6 +13,11 @@ from types import SimpleNamespace
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import ha_stubs  # noqa: E402
 
+if getattr(ha_stubs, "STUBS_VERSION", 0) < 4:
+    raise RuntimeError(
+        "Устаревший tests/ha_stubs.py (нужна версия заглушек 4 или новее): "
+        "скопируйте ha_stubs.py из последнего релиза рядом с тестами.")
+
 COMPONENT = Path(__file__).resolve().parent.parent / "custom_components" / "kotel"
 PKG = "kotel_under_test"
 if PKG not in sys.modules:
@@ -187,6 +192,7 @@ class SetupPassesServersTests(unittest.IsolatedAsyncioTestCase):
                 captured.update(kwargs)
 
         def stop(*args, **kwargs):
+            captured["coordinator_kwargs"] = kwargs
             raise Stop
 
         module.KotelApiClient = FakeClient
@@ -197,6 +203,10 @@ class SetupPassesServersTests(unittest.IsolatedAsyncioTestCase):
             await module.async_setup_entry(SimpleNamespace(), entry)
         return captured
 
+    async def test_coordinator_gets_config_entry(self):
+        captured = await self.run_setup({})
+        self.assertIn("config_entry", captured["coordinator_kwargs"])      # нужен для reauth
+
     async def test_default_is_automatic(self):
         captured = await self.run_setup({})
         self.assertIsNone(captured["fallback_urls"])
@@ -204,6 +214,57 @@ class SetupPassesServersTests(unittest.IsolatedAsyncioTestCase):
     async def test_explicit_list_and_disabled(self):
         self.assertEqual((await self.run_setup({"fallback_urls": [WEB]}))["fallback_urls"], [WEB])
         self.assertEqual((await self.run_setup({"fallback_urls": []}))["fallback_urls"], [])
+
+
+class UpdateListenerTests(unittest.IsolatedAsyncioTestCase):
+    """Слушатель изменений записи: перезагрузка при смене параметров, но не пароля."""
+
+    def load_init(self):
+        spec = importlib.util.spec_from_file_location(
+            "kotel_init_listener", COMPONENT / "__init__.py",
+            submodule_search_locations=[str(COMPONENT)])
+        module = importlib.util.module_from_spec(spec)
+        sys.modules["kotel_init_listener"] = module
+        spec.loader.exec_module(module)
+        return module
+
+    def make(self):
+        module = self.load_init()
+        entry = SimpleNamespace(
+            entry_id="E1", options={"scan_interval": 30},
+            data={"url": APP, "login": "u", "password": "old", "home_id": "H1"})
+        reloads = []
+
+        async def reload(entry_id):
+            reloads.append(entry_id)
+
+        hass = SimpleNamespace(config_entries=SimpleNamespace(async_reload=reload))
+        return module._make_update_listener(entry), hass, entry, reloads
+
+    async def test_password_change_does_not_reload(self):
+        listener, hass, entry, reloads = self.make()
+        entry.data = {**entry.data, "password": "new"}
+        await listener(hass, entry)
+        self.assertEqual(reloads, [])
+
+    async def test_options_change_reloads(self):
+        listener, hass, entry, reloads = self.make()
+        entry.options = {**entry.options, "scan_interval": 60}
+        await listener(hass, entry)
+        entry.options = {**entry.options, "fallback_urls": [WEB]}
+        await listener(hass, entry)
+        self.assertEqual(reloads, ["E1", "E1"])
+
+    async def test_primary_server_change_reloads(self):
+        listener, hass, entry, reloads = self.make()
+        entry.data = {**entry.data, "url": WEB}
+        await listener(hass, entry)
+        self.assertEqual(reloads, ["E1"])
+
+    async def test_nothing_changed_nothing_reloaded(self):
+        listener, hass, entry, reloads = self.make()
+        await listener(hass, entry)
+        self.assertEqual(reloads, [])
 
 
 class EffectiveServersTests(unittest.TestCase):

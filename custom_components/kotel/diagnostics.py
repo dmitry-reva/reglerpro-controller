@@ -2,6 +2,12 @@
 
 Файл `diagnostics.py` автоматически подхватывается Home Assistant:
 «Настройки → Устройства и службы → ReglerPro Controller → Скачать диагностику».
+
+Сервер отдаёт данные дома по логину, паролю и номеру дома и не проверяет, что
+пользователь состоит в этом доме. Поэтому номер дома и идентификаторы устройств
+нужно считать секретными так же, как пароль: в диагностике они заменяются
+обезличенными метками (`<home_id>`, `<device-1>` …) везде, в том числе внутри
+строк и ключей словарей.
 """
 
 from __future__ import annotations
@@ -13,26 +19,51 @@ from homeassistant.core import HomeAssistant
 
 from .const import DOMAIN
 
-_REDACT_KEYS = {"password", "login"}
+# Значения этих ключей скрываются всегда
+_REDACT_KEYS = {"password", "login", "home_id", "userId"}
+_MIN_SECRET_LENGTH = 3
 
 
-def _redact(value: Any) -> Any:
+def _replacements(entry: ConfigEntry, coordinator) -> dict[str, str]:
+    """Секретные значения -> метки; длинные первыми, чтобы не резать идентификаторы."""
+    found: dict[str, str] = {}
+
+    def add(value: Any, label: str) -> None:
+        text = str(value or "").strip()
+        if len(text) >= _MIN_SECRET_LENGTH and text not in found:
+            found[text] = label
+
+    add(entry.data.get("password"), "***")
+    add(entry.data.get("login"), "<login>")
+    add(entry.data.get("home_id"), "<home_id>")
+    for number, dev_id in enumerate(sorted((coordinator.data or {}) if coordinator else {}), 1):
+        add(dev_id, f"<device-{number}>")
+    return dict(sorted(found.items(), key=lambda item: -len(item[0])))
+
+
+def _scrub(value: Any, replacements: dict[str, str]) -> Any:
     if isinstance(value, dict):
         return {
-            key: ("***" if key in _REDACT_KEYS else _redact(item))
+            _scrub(key, replacements): (
+                "***" if key in _REDACT_KEYS else _scrub(item, replacements)
+            )
             for key, item in value.items()
         }
-    if isinstance(value, list):
-        return [_redact(item) for item in value]
+    if isinstance(value, (list, tuple)):
+        return [_scrub(item, replacements) for item in value]
+    if isinstance(value, str):
+        for secret, label in replacements.items():
+            value = value.replace(secret, label)
     return value
 
 
 async def async_get_config_entry_diagnostics(
     hass: HomeAssistant, entry: ConfigEntry
 ) -> dict[str, Any]:
-    """Вернуть диагностику записи без учётных данных."""
+    """Вернуть диагностику записи без учётных данных, номера дома и идентификаторов."""
     runtime = hass.data.get(DOMAIN, {}).get(entry.entry_id, {})
     coordinator = runtime.get("coordinator")
+    api = runtime.get("api")
 
     devices: dict[str, Any] = {}
     if coordinator is not None and coordinator.data:
@@ -44,16 +75,21 @@ async def async_get_config_entry_diagnostics(
                 "detail_ok": data.get("detail_ok"),
                 "params_count": len(data.get("params") or {}),
                 "climate": data.get("climate"),
-                "raw": _redact(data.get("raw")),
-                "list_raw": _redact(data.get("list_raw")),
+                "raw": data.get("raw"),
+                "list_raw": data.get("list_raw"),
             }
 
-    return {
+    result = {
         "entry": {
             "title": entry.title,
             "version": entry.version,
-            "data": _redact(dict(entry.data)),
+            "data": dict(entry.data),
             "options": dict(entry.options),
+        },
+        "api": {
+            # на каком из серверов клиент работает сейчас
+            "servers": list(getattr(api, "servers", ())) if api is not None else None,
+            "active_server": getattr(api, "active_url", None) if api is not None else None,
         },
         "coordinator": {
             "last_update_success": (
@@ -72,3 +108,4 @@ async def async_get_config_entry_diagnostics(
             "devices": devices,
         },
     }
+    return _scrub(result, _replacements(entry, coordinator))

@@ -32,7 +32,14 @@ from .const import (
     KNOWN_SERVERS,
 )
 from .profiles import EXPORT_DIR, KIND_LABELS
-from .api import KotelApiClient, KotelApiError, build_servers
+from .api import (
+    KotelApiClient,
+    KotelApiError,
+    KotelAuthError,
+    KotelResponseError,
+    KotelTimeoutError,
+    build_servers,
+)
 
 STEP_USER_DATA_SCHEMA = vol.Schema({
     # основной сервер: из списка или свой адрес (у серверов из списка клиент API
@@ -51,6 +58,35 @@ STEP_USER_DATA_SCHEMA = vol.Schema({
 
 
 ON_CONFLICT_OPTIONS = ["rename", "overwrite", "skip"]   # подписи — selector.on_conflict
+
+
+async def _check_credentials(hass, data) -> tuple[str | None, str]:
+    """Проверить учётные данные запросом списка устройств.
+
+    Возвращает (ключ ошибки или None, выдержка из ответа сервера для сообщения).
+    """
+    home_id = (data.get("home_id") or "").strip()
+    api = KotelApiClient(
+        base_url=data["url"],
+        login=data["login"],
+        password=data["password"],
+        home_id=home_id,
+        session=async_get_clientsession(hass),
+    )
+    try:
+        devices = await api.get_all_devices()
+    except KotelAuthError:
+        return "invalid_auth", ""
+    except KotelResponseError as err:
+        return "unexpected_response", err.snippet
+    except KotelTimeoutError:
+        # при неверном номере дома у пользователя без домов сервер не отвечает вовсе
+        return "no_response", ""
+    except KotelApiError:
+        return "cannot_connect", ""
+    if devices:
+        return None, ""
+    return ("no_devices" if home_id else "no_home_id"), ""
 
 
 def _is_valid_server_url(url: str) -> bool:
@@ -140,6 +176,7 @@ class KotelConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_user(self, user_input=None):
         """Первый шаг — ввод учётных данных."""
         errors = {}
+        placeholders = {"response": ""}
 
         if user_input is not None:
             # Одна запись на связку «логин + дом»: на разных серверах учётная запись
@@ -152,31 +189,51 @@ class KotelConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if self._account_already_configured(login, home_id):
                 return self.async_abort(reason="already_configured")
 
-            # Проверяем соединение
-            api = KotelApiClient(
-                base_url=user_input["url"],
-                login=user_input["login"],
-                password=user_input["password"],
-                home_id=home_id,
-            )
-            try:
-                devices = await api.get_all_devices()
-            except KotelApiError:
-                errors["base"] = "cannot_connect"
-            else:
-                if devices:
-                    return self.async_create_entry(
-                        title=f"ReglerPro ({home_id or user_input['login']})",
-                        data=user_input,
-                    )
-                errors["base"] = "no_home_id" if not home_id else "no_devices"
-            finally:
-                await api.close()
+            # Проверяем соединение и учётные данные
+            error, response = await _check_credentials(
+                self.hass, {**user_input, "home_id": home_id})
+            if error is None:
+                return self.async_create_entry(
+                    title=f"ReglerPro ({home_id or user_input['login']})",
+                    data=user_input,
+                )
+            errors["base"] = error
+            placeholders["response"] = response
 
         return self.async_show_form(
             step_id="user",
             data_schema=STEP_USER_DATA_SCHEMA,
             errors=errors,
+            description_placeholders=placeholders,
+        )
+
+    # --- повторная авторизация -------------------------------------------------
+    async def async_step_reauth(self, entry_data):
+        """Сервер отклонил сохранённые учётные данные."""
+        return await self.async_step_reauth_confirm()
+
+    async def async_step_reauth_confirm(self, user_input=None):
+        entry = self._get_reauth_entry()
+        errors = {}
+        placeholders = {"login": entry.data.get("login", ""), "response": ""}
+        if user_input is not None:
+            data = {**entry.data, "password": user_input["password"]}
+            error, response = await _check_credentials(self.hass, data)
+            if error is None:
+                # Перезагружаем запись явно, а не через слушатель изменений: если
+                # первый опрос закончился отказом, слушателя ещё нет, а после отказа
+                # при работе опрос остановлен. Слушатель на смену пароля не реагирует
+                # (см. _reload_key в __init__.py), поэтому перезагрузка одна.
+                self.hass.config_entries.async_update_entry(entry, data=data)
+                self.hass.config_entries.async_schedule_reload(entry.entry_id)
+                return self.async_abort(reason="reauth_successful")
+            errors["base"] = error
+            placeholders["response"] = response
+        return self.async_show_form(
+            step_id="reauth_confirm",
+            data_schema=vol.Schema({vol.Required("password"): str}),
+            errors=errors,
+            description_placeholders=placeholders,
         )
 
     def _account_already_configured(self, login: str, home_id: str) -> bool:

@@ -19,7 +19,9 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
+import re
 import time
 
 import aiohttp  # pyright: ignore[reportMissingImports]
@@ -71,15 +73,87 @@ class KotelApiError(Exception):
     """Ошибка API Kotel."""
 
 
+class KotelAuthError(KotelApiError):
+    """Сервер отклонил учётные данные (HTTP 401/403 или ответ, похожий на отказ)."""
+
+
+class KotelTimeoutError(KotelApiError):
+    """Сервер не ответил за отведённое время (все серверы).
+
+    Для этой учётной записи так бывает, если пользователь не состоит ни в одном
+    доме, а в запросе указан несуществующий номер дома: сервер не отвечает вовсе.
+    """
+
+
+class KotelResponseError(KotelApiError):
+    """Ответ сервера имеет неожиданный вид (не тот тип данных).
+
+    snippet — короткая выдержка из ответа (без логина и пароля) для сообщения
+    пользователю и журнала.
+    """
+
+    def __init__(self, message: str, snippet: str = "") -> None:
+        super().__init__(message)
+        self.snippet = snippet
+
+
+# Слова, по которым неожиданный ответ считается отказом в авторизации. Формат
+# ответа сервера на неверный пароль неизвестен, поэтому список намеренно узкий;
+# всё остальное — KotelResponseError (не авторизация).
+_AUTH_HINTS = (
+    "auth", "login", "password", "passwd", "credential", "denied", "forbidden",
+    "unauthor", "логин", "парол", "авториз", "доступ", "неверн",
+)
+
+
+# Точный ответ сервера на неверный логин или пароль (получен на живом сервере):
+# строка "login_pass_in_db_ok - NO".
+_LOGIN_CHECK_RE = re.compile(r"login_pass_in_db_ok\s*-\s*(\w+)", re.IGNORECASE)
+
+
+def is_login_rejected(data) -> bool:
+    """Сервер ответил, что пара логин/пароль не найдена (точный признак)."""
+    if not isinstance(data, str):
+        return False
+    match = _LOGIN_CHECK_RE.search(data)
+    return match is not None and match.group(1).lower() == "no"
+
+
+def looks_like_auth_failure(data) -> bool:
+    """Похож ли неожиданный ответ (строка или словарь) на отказ в авторизации."""
+    if isinstance(data, str):
+        match = _LOGIN_CHECK_RE.search(data)
+        if match is not None:
+            # служебная строка проверки пароля: отказ только при «NO», иначе это
+            # какой-то другой ответ (его покажет KotelResponseError)
+            return match.group(1).lower() == "no"
+        texts = [data]
+    elif isinstance(data, dict):
+        texts = [str(key) for key in data] + [v for v in data.values() if isinstance(v, str)]
+    else:
+        return False
+    low = " ".join(texts).lower()
+    return any(hint in low for hint in _AUTH_HINTS)
+
+
 class _ServerError(KotelApiError):
     """Сбой конкретного сервера (сеть, таймаут, 5xx, не-JSON).
 
     pre_send=True — запрос не дошёл до сервера, его безопасно повторить где угодно.
     """
 
-    def __init__(self, message: str, *, pre_send: bool = False) -> None:
+    def __init__(self, message: str, *, pre_send: bool = False, timeout: bool = False) -> None:
         super().__init__(message)
         self.pre_send = pre_send
+        self.timeout = timeout          # сервер принял запрос, но не ответил вовремя
+
+
+class _BadResponse(_ServerError):
+    """Сервер ответил, но не тем типом данных; можно спросить другой сервер."""
+
+    def __init__(self, message: str, *, snippet: str) -> None:
+        super().__init__(message)
+        self.snippet = snippet
 
 
 def _normalize_url(url: str) -> str:
@@ -160,8 +234,25 @@ class KotelApiClient:
         level = logging.INFO if index == 0 else logging.WARNING
         _LOGGER.log(level, "Работа с сервером %s вместо %s", self._servers[index], previous)
 
-    async def _post_to(self, base_url: str, payload: dict) -> object:
-        """Один запрос к одному серверу. Сбои сервера — _ServerError."""
+    def _describe(self, data) -> str:
+        """Короткая выдержка из ответа без логина и пароля."""
+        try:
+            text = json.dumps(_redact(data), ensure_ascii=False)
+        except (TypeError, ValueError):
+            text = repr(data)
+        for secret in (self._password, self._login):
+            if secret and len(secret) >= 3:
+                text = text.replace(secret, "***")
+        if len(text) > 120:
+            text = text[:117] + "..."
+        return f"{type(data).__name__}: {text}"
+
+    async def _post_to(self, base_url: str, payload: dict, expect=None) -> object:
+        """Один запрос к одному серверу. Сбои сервера — _ServerError.
+
+        expect — ожидаемый тип ответа (list, dict); другой тип — это отказ в
+        авторизации, если ответ на него похож, иначе _BadResponse.
+        """
         url = f"{base_url}{API_PATH}"
         session = await self._get_session()
         action = payload.get("action")
@@ -176,6 +267,8 @@ class KotelApiClient:
             ) as resp:
                 if resp.status >= 500:
                     raise _ServerError(f"HTTP {resp.status}")
+                if resp.status in (401, 403):
+                    raise KotelAuthError(f"Сервер отклонил учётные данные (HTTP {resp.status})")
                 if resp.status != 200:
                     raise KotelApiError(f"HTTP {resp.status}")
                 # Сервер облака может отдавать JSON с другим Content-Type.
@@ -183,29 +276,52 @@ class KotelApiClient:
         except KotelApiError:
             raise
         except _PRE_SEND_ERRORS as err:
-            raise _ServerError(f"Ошибка соединения: {err}", pre_send=True) from err
-        except (aiohttp.ClientError, asyncio.TimeoutError) as err:
-            raise _ServerError(f"Ошибка соединения: {err}") from err
+            # str() таймаута пустой, поэтому добавляем имя класса
+            raise _ServerError(
+                f"Ошибка соединения: {str(err) or type(err).__name__}", pre_send=True) from err
+        except asyncio.TimeoutError as err:
+            raise _ServerError(
+                f"Нет ответа от сервера за {REQUEST_TIMEOUT} с", timeout=True) from err
+        except aiohttp.ClientError as err:
+            raise _ServerError(f"Ошибка соединения: {str(err) or type(err).__name__}") from err
         except ValueError as err:
             raise _ServerError(f"Некорректный ответ сервера: {err}") from err
         if _LOGGER.isEnabledFor(logging.DEBUG):
             _LOGGER.debug("Response action=%s: %s", action, _redact(data))
+        if is_login_rejected(data):
+            # команда записи с неверным паролем не выполнена: молча «успешной» её считать нельзя
+            raise KotelAuthError(
+                f"Сервер отклонил учётные данные: {self._describe(data)}")
+        if expect is not None and not isinstance(data, expect):
+            snippet = self._describe(data)
+            if looks_like_auth_failure(data):
+                raise KotelAuthError(f"Сервер отклонил учётные данные: {snippet}")
+            raise _BadResponse(
+                f"Неожиданный ответ сервера для {action}: {snippet}", snippet=snippet)
         return data
 
-    async def _post(self, payload: dict, *, idempotent: bool = False) -> object:
+    async def _post(
+        self, payload: dict, *, idempotent: bool = False, expect=None
+    ) -> object:
         """Отправка POST-запроса к taptop.php (аналог post_action из functions.js).
 
         idempotent=True — повтор запроса на другом сервере безопасен (чтение).
         """
         errors: list[str] = []
+        failures: list[_ServerError] = []
         for index in self._candidates():
             base_url = self._servers[index]
             try:
-                data = await self._post_to(base_url, payload)
+                data = await self._post_to(base_url, payload, expect)
             except _ServerError as err:
                 if len(self._servers) == 1:
+                    if isinstance(err, _BadResponse):
+                        raise KotelResponseError(str(err), err.snippet) from err
+                    if err.timeout and idempotent:
+                        raise KotelTimeoutError(str(err)) from err
                     raise
                 errors.append(f"{base_url}: {err}")
+                failures.append(err)
                 if idempotent or err.pre_send:
                     continue
                 # Команда могла быть выполнена: на другой сервер не переносим.
@@ -214,7 +330,12 @@ class KotelApiClient:
                 ) from err
             self._mark_ok(index)
             return data
-        raise KotelApiError("; ".join(errors))
+        message = "; ".join(errors)
+        if failures and all(isinstance(err, _BadResponse) for err in failures):
+            raise KotelResponseError(message, failures[0].snippet)
+        if failures and all(err.timeout for err in failures):
+            raise KotelTimeoutError(message)
+        raise KotelApiError(message)
 
     # ------------------------------------------------------------------
     # Запросы
@@ -258,10 +379,8 @@ class KotelApiClient:
             "action_value1": self._home_id,
             "action_value2": "",
         }
-        data = await self._post(payload, idempotent=True)
-        if not isinstance(data, list):
-            return []
-        return data
+        # Не список — это не «нет устройств», а отказ или сбой сервера (исключение).
+        return await self._post(payload, idempotent=True, expect=list)
 
     async def get_controller(self, device_id: str) -> dict:
         """Получить детальные данные контроллера (action=get_big_contr).
@@ -276,8 +395,7 @@ class KotelApiClient:
             "action_value1": "",
             "action_value2": "",
         }
-        data = await self._post(payload, idempotent=True)
-        return data if isinstance(data, dict) else {}
+        return await self._post(payload, idempotent=True, expect=dict)
 
     async def get_sensor(self, device_id: str) -> dict:
         """Получить детальные данные датчика (action=get_big_dt)."""
@@ -289,8 +407,7 @@ class KotelApiClient:
             "action_value1": "",
             "action_value2": "",
         }
-        data = await self._post(payload, idempotent=True)
-        return data if isinstance(data, dict) else {}
+        return await self._post(payload, idempotent=True, expect=dict)
 
     async def send_command(
         self, action: str, device_id: str, range_value: int | float = 0

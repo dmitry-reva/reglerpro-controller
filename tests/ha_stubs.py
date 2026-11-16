@@ -14,6 +14,11 @@ import sys
 import types
 from pathlib import Path
 
+# Версия заглушек. Тесты проверяют её и сообщают, если ha_stubs.py устарел.
+STUBS_VERSION = 4
+
+_EXCEPTION_SUFFIXES = ("Error", "Failed", "Exception", "NotReady")
+
 
 class _Any:
     """Универсальное значение: допускает вызов, атрибуты и операцию «|»."""
@@ -64,6 +69,10 @@ class ServiceValidationError(HomeAssistantError):
     pass
 
 
+class ConfigEntryAuthFailed(HomeAssistantError):
+    pass
+
+
 class UpdateFailed(Exception):
     pass
 
@@ -96,6 +105,7 @@ class DataUpdateCoordinator:
     def __init__(self, hass, logger, name=None, update_interval=None, **kwargs) -> None:
         self.hass = hass
         self.update_interval = update_interval
+        self.config_entry = kwargs.get("config_entry")
         self.data = {}
         self.last_update_success = True
         self.refreshes = 0
@@ -118,16 +128,42 @@ class _Module(types.ModuleType):
             value = lambda *a, **k: _Any(name)           # noqa: E731
         elif name[0].islower():                          # подмодуль (cv, config_entries ...)
             value = importlib.import_module(f"{self.__name__}.{name}")
+        elif name.endswith(_EXCEPTION_SUFFIXES):         # исключения должны быть исключениями
+            value = type(name, (Exception,), {})
         else:                                            # класс или константа
             value = _dummy_class(name)
         setattr(self, name, value)
         return value
 
 
+class ClientError(Exception):
+    pass
+
+
+class ClientConnectorError(ClientError):
+    pass
+
+
+class ConnectionTimeoutError(ClientError, TimeoutError):
+    pass
+
+
+class ClientTimeout:
+    def __init__(self, **kwargs) -> None:
+        self.kwargs = kwargs
+
+
 _SPECIAL = {
+    "aiohttp": {
+        "ClientError": ClientError,
+        "ClientConnectorError": ClientConnectorError,
+        "ConnectionTimeoutError": ConnectionTimeoutError,
+        "ClientTimeout": ClientTimeout,
+    },
     "homeassistant.exceptions": {
         "HomeAssistantError": HomeAssistantError,
         "ServiceValidationError": ServiceValidationError,
+        "ConfigEntryAuthFailed": ConfigEntryAuthFailed,
     },
     "homeassistant.core": {"callback": lambda func: func},
     "homeassistant.helpers.entity": {"Entity": Entity},
