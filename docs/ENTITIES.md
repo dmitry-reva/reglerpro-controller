@@ -129,10 +129,12 @@ PN > P(N−1) и PN < P(N+1).
 | `button` | `boiler_profile_update` | Обновить профиль котла | `profile_update` |
 | `button` | `boiler_profile_apply` | Применить профиль котла | `profile_apply` |
 | `button` | `boiler_profile_undo` | Отменить применение (котёл) | `profile_undo` |
+| `button` | `boiler_profile_delete` | Удалить профиль котла | `profile_delete` |
 | `button` | `climate_profile_save` | Сохранить профиль климата | `climate_profile_save` |
 | `button` | `climate_profile_update` | Обновить профиль климата | `climate_profile_update` |
 | `button` | `climate_profile_apply` | Применить профиль климата | `climate_profile_apply` |
 | `button` | `climate_profile_undo` | Отменить применение (климат) | `climate_profile_undo` |
+| `button` | `climate_profile_delete` | Удалить профиль климата | `climate_profile_delete` |
 
 ### Термостат
 
