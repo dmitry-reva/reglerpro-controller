@@ -13,9 +13,9 @@ from types import SimpleNamespace
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import ha_stubs  # noqa: E402
 
-if getattr(ha_stubs, "STUBS_VERSION", 0) < 4:
+if getattr(ha_stubs, "STUBS_VERSION", 0) < 5:
     raise RuntimeError(
-        "Устаревший tests/ha_stubs.py (нужна версия заглушек 4 или новее): "
+        "Устаревший tests/ha_stubs.py (нужна версия заглушек 5 или новее): "
         "скопируйте ha_stubs.py из последнего релиза рядом с тестами.")
 
 COMPONENT = Path(__file__).resolve().parent.parent / "custom_components" / "kotel"
@@ -113,7 +113,8 @@ def make_entity_env(detail_ok=True, success=True, enabled=True):
                      "params": {"sost_rab": 0},
                      "climate": {"enabled": enabled, "mode": 0, "active": True}}},
         last_update_success=success, refreshes=0,
-        hass=SimpleNamespace(data={const.DOMAIN: {"e1": {"api": api}}}),
+        hass=SimpleNamespace(data={}),
+        api=api,                                  # команды идут через coordinator.api
     )
 
     async def refresh():
@@ -127,21 +128,21 @@ def make_entity_env(detail_ok=True, success=True, enabled=True):
 class ClimateTests(unittest.IsolatedAsyncioTestCase):
     async def test_refused_when_detail_missing(self):
         api, coord = make_entity_env(detail_ok=False, enabled=False)
-        entity = climate_mod.KotelClimate(coord, "c1", "e1")
+        entity = climate_mod.KotelClimate(coord, "c1")
         with self.assertRaises(HomeAssistantError):
             await entity.async_turn_on()
         self.assertEqual(api.calls, [])           # переключатель не отправлен
 
     async def test_refused_when_refresh_failed(self):
         api, coord = make_entity_env(success=False)
-        entity = climate_mod.KotelClimate(coord, "c1", "e1")
+        entity = climate_mod.KotelClimate(coord, "c1")
         with self.assertRaises(HomeAssistantError):
             await entity.async_turn_off()
         self.assertEqual(api.calls, [])
 
     async def test_normal_toggle_still_works(self):
         api, coord = make_entity_env(enabled=False)
-        entity = climate_mod.KotelClimate(coord, "c1", "e1")
+        entity = climate_mod.KotelClimate(coord, "c1")
         await entity.async_turn_on()
         self.assertEqual(api.calls, [("on_off", "c1")])
 
@@ -156,7 +157,7 @@ class SwitchTests(unittest.IsolatedAsyncioTestCase):
             coord.data["c1"]["params"] = {}
         else:
             coord.data["c1"]["params"] = {"sost_rab": sost_rab}
-        entity = switch_mod.KotelStartStopSwitch(coord, "c1", "e1")
+        entity = switch_mod.KotelStartStopSwitch(coord, "c1")
         entity.hass = SimpleNamespace()
         timers = []
         switch_mod.async_call_later = lambda hass, delay, action: (

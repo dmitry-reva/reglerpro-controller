@@ -16,9 +16,9 @@ from types import SimpleNamespace
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import ha_stubs  # noqa: E402
 
-if getattr(ha_stubs, "STUBS_VERSION", 0) < 4:
+if getattr(ha_stubs, "STUBS_VERSION", 0) < 5:
     raise RuntimeError(
-        "Устаревший tests/ha_stubs.py (нужна версия заглушек 4 или новее): "
+        "Устаревший tests/ha_stubs.py (нужна версия заглушек 5 или новее): "
         "скопируйте ha_stubs.py из последнего релиза рядом с тестами.")
 
 COMPONENT = Path(__file__).resolve().parent.parent / "custom_components" / "kotel"
@@ -151,8 +151,9 @@ class DiagnosticsTests(unittest.IsolatedAsyncioTestCase):
             data={"url": "https://app.reglerpro.ru", "login": "dmrlogin",
                   "password": "s3cret!", "home_id": "H123456"},
             options={"scan_interval": 30})
-        runtime = {"coordinator": coord, "api": coord._api} if with_runtime else {}
-        hass = SimpleNamespace(data={const.DOMAIN: {"E1": runtime}})
+        if with_runtime:                        # у незагруженной записи runtime_data нет
+            entry.runtime_data = SimpleNamespace(coordinator=coord, api=coord._api)
+        hass = SimpleNamespace(data={})
         return await diagnostics_mod.async_get_config_entry_diagnostics(hass, entry)
 
     async def test_no_secret_survives_anywhere(self):

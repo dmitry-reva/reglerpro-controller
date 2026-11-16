@@ -54,6 +54,9 @@
     "error": {
       "invalid_url": "Enter the server address starting with https:// (or http://): {server}",
       "server_check_failed": "Server {server} did not respond: {error}"
+    },
+    "abort": {
+      "not_loaded": "The integration is not loaded. Reload it and try again."
     }
   }
 }

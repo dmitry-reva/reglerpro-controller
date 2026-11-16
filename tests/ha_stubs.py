@@ -15,9 +15,15 @@ import types
 from pathlib import Path
 
 # Версия заглушек. Тесты проверяют её и сообщают, если ha_stubs.py устарел.
-STUBS_VERSION = 4
+STUBS_VERSION = 5
 
 _EXCEPTION_SUFFIXES = ("Error", "Failed", "Exception", "NotReady")
+
+# Пакеты, из которых «import name» даёт подмодуль. В остальных модулях строчные имена —
+# функции (например, cv.config_entry_only_config_schema), а не подмодули.
+_PACKAGES = {
+    "homeassistant", "homeassistant.helpers", "homeassistant.components", "homeassistant.util",
+}
 
 
 class _Any:
@@ -126,8 +132,10 @@ class _Module(types.ModuleType):
             raise AttributeError(name)
         if name.startswith("async_"):                    # функция-заглушка
             value = lambda *a, **k: _Any(name)           # noqa: E731
-        elif name[0].islower():                          # подмодуль (cv, config_entries ...)
+        elif name[0].islower() and self.__name__ in _PACKAGES:   # подмодуль (cv, config_entries ...)
             value = importlib.import_module(f"{self.__name__}.{name}")
+        elif name[0].islower():                          # функция-заглушка
+            value = lambda *a, **k: _Any(name)           # noqa: E731
         elif name.endswith(_EXCEPTION_SUFFIXES):         # исключения должны быть исключениями
             value = type(name, (Exception,), {})
         else:                                            # класс или константа

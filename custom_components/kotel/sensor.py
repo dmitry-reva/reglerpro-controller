@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -14,9 +15,11 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity import EntityCategory
 
 from .const import DEVICE_TYPE_CONTR, DEVICE_TYPE_DT, DOMAIN, DT_STALE_SECONDS
-from .coordinator import KotelCoordinator
 from .entity import KotelEntity
 from .params_parser import is_kotel_auto, sost_rab_text
+
+if TYPE_CHECKING:  # pragma: no cover - только для типов
+    from .runtime import KotelConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -175,9 +178,13 @@ def _params_format(raw) -> str:
     return "unknown"
 
 
-async def async_setup_entry(hass, entry, async_add_entities):
+# Сенсоры только читают данные координатора
+PARALLEL_UPDATES = 0
+
+
+async def async_setup_entry(hass, entry: KotelConfigEntry, async_add_entities):
     """Настройка сенсоров при добавлении интеграции."""
-    coordinator: KotelCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+    coordinator = entry.runtime_data.coordinator
     entities = []
 
     for dev_id, dev_data in coordinator.data.items():

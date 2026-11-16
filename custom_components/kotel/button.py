@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from homeassistant.components.button import ButtonEntity
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 
@@ -9,6 +11,9 @@ from .const import DEVICE_TYPE_CONTR, DOMAIN
 from .coordinator import KotelCoordinator
 from .entity import KotelEntity
 from .profiles import ALL_KINDS, KIND_BOILER, KIND_CLIMATE
+
+if TYPE_CHECKING:  # pragma: no cover - только для типов
+    from .runtime import KotelConfigEntry
 
 # тип профиля -> действие -> (translation_key, иконка)
 BUTTONS = {
@@ -31,8 +36,12 @@ BUTTONS = {
 _UID_PREFIX = {KIND_BOILER: "profile", KIND_CLIMATE: "climate_profile"}
 
 
-async def async_setup_entry(hass, entry, async_add_entities):
-    coordinator: KotelCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+# Кнопки профилей (запись в облако) выполняются по одной
+PARALLEL_UPDATES = 1
+
+
+async def async_setup_entry(hass, entry: KotelConfigEntry, async_add_entities):
+    coordinator = entry.runtime_data.coordinator
     manager = hass.data[DOMAIN]["_profiles"]
     async_add_entities(
         KotelProfileButton(coordinator, dev_id, manager, kind, action)

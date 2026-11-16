@@ -17,7 +17,6 @@ from typing import Any
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
-from .const import DOMAIN
 
 # Значения этих ключей скрываются всегда
 _REDACT_KEYS = {"password", "login", "home_id", "userId"}
@@ -61,9 +60,9 @@ async def async_get_config_entry_diagnostics(
     hass: HomeAssistant, entry: ConfigEntry
 ) -> dict[str, Any]:
     """Вернуть диагностику записи без учётных данных, номера дома и идентификаторов."""
-    runtime = hass.data.get(DOMAIN, {}).get(entry.entry_id, {})
-    coordinator = runtime.get("coordinator")
-    api = runtime.get("api")
+    runtime = getattr(entry, "runtime_data", None)      # нет, если запись не загружена
+    coordinator = getattr(runtime, "coordinator", None)
+    api = getattr(runtime, "api", None)
 
     devices: dict[str, Any] = {}
     if coordinator is not None and coordinator.data:

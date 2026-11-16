@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING
 
 from homeassistant.components.select import SelectEntity
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
@@ -13,16 +14,23 @@ from .coordinator import KotelCoordinator
 from .entity import KotelEntity
 from .profiles import ALL_KINDS, KIND_BOILER
 
+if TYPE_CHECKING:  # pragma: no cover - только для типов
+    from .runtime import KotelConfigEntry
+
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_setup_entry(hass, entry, async_add_entities):
-    coordinator: KotelCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+# Выбор датчика и профиля — команды по одной
+PARALLEL_UPDATES = 1
+
+
+async def async_setup_entry(hass, entry: KotelConfigEntry, async_add_entities):
+    coordinator = entry.runtime_data.coordinator
     manager = hass.data[DOMAIN]["_profiles"]
     entities = []
     for dev_id, dev_data in coordinator.data.items():
         if dev_data["type"] == DEVICE_TYPE_CONTR:
-            entities.append(KotelClimateSensorSelect(coordinator, dev_id, entry.entry_id))
+            entities.append(KotelClimateSensorSelect(coordinator, dev_id))
             for kind in ALL_KINDS:
                 entities.append(KotelProfileSelect(coordinator, dev_id, manager, kind))
     async_add_entities(entities)
@@ -33,13 +41,12 @@ class KotelClimateSensorSelect(KotelEntity, SelectEntity):
 
     _attr_icon = "mdi:thermometer-check"
 
-    def __init__(self, coordinator: KotelCoordinator, dev_id: str, entry_id: str):
+    def __init__(self, coordinator: KotelCoordinator, dev_id: str):
         super().__init__(
             coordinator, dev_id,
             unique_suffix="climate_sensor",
             translation_key="climate_sensor",
         )
-        self._entry_id = entry_id
         self._fetched: list[dict] = []     # ответ get_climat_sensors (если он непустой)
 
     @property
@@ -48,7 +55,7 @@ class KotelClimateSensorSelect(KotelEntity, SelectEntity):
 
     @property
     def _api(self):
-        return self.coordinator.hass.data[DOMAIN][self._entry_id]["api"]
+        return self.coordinator.api
 
     def _candidates(self) -> list[tuple[str, str]]:
         """Список (id, имя) датчиков: ответ сервера или датчики из get_all_dev."""

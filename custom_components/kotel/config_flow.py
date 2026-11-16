@@ -372,6 +372,9 @@ class KotelOptionsFlow(config_entries.OptionsFlow):
         return self.async_create_entry(title="", data=options)
 
     async def async_step_add_temperature_sensor(self, user_input=None):
+        runtime = getattr(self.config_entry, "runtime_data", None)
+        if runtime is None:                      # запись не загружена: клиента API нет
+            return self.async_abort(reason="not_loaded")
         errors = {}
         placeholders = {"error": ""}
         configured_home_id = (self.config_entry.data.get("home_id") or "").strip()
@@ -383,7 +386,7 @@ class KotelOptionsFlow(config_entries.OptionsFlow):
             elif not user_input["confirm"]:
                 errors["base"] = "confirmation_required"
             else:
-                api = self.hass.data[DOMAIN][self.config_entry.entry_id]["api"]
+                api = runtime.api
                 try:
                     sensor_id = await api.add_temperature_sensor(home_id)
                 except KotelApiError as err:

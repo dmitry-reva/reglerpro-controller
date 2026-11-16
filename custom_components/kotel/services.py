@@ -107,7 +107,10 @@ SEND_COMMAND_SCHEMA = vol.Schema({
 
 
 def _manager(hass: HomeAssistant) -> KotelProfileManager:
-    return hass.data[DOMAIN]["_profiles"]
+    manager = hass.data.get(DOMAIN, {}).get("_profiles")
+    if manager is None:
+        raise ServiceValidationError("Интеграция Kotel ещё не загружена")
+    return manager
 
 
 def resolve_device_ids(hass: HomeAssistant, manager: KotelProfileManager,
@@ -148,10 +151,7 @@ def _single_device(hass: HomeAssistant, manager: KotelProfileManager,
 
 @callback
 def async_register_services(hass: HomeAssistant) -> None:
-    """Зарегистрировать службы (повторный вызов безопасен)."""
-    if hass.services.has_service(DOMAIN, "save_profile"):
-        return
-
+    """Зарегистрировать службы (вызывается один раз из async_setup)."""
     async def save_profile(call: ServiceCall):
         manager = _manager(hass)
         dev_id = _single_device(hass, manager, call)
@@ -278,15 +278,3 @@ def async_register_services(hass: HomeAssistant) -> None:
              supports_response=SupportsResponse.OPTIONAL)
     register(DOMAIN, "import_profiles", import_profiles, schema=IMPORT_SCHEMA,
              supports_response=SupportsResponse.OPTIONAL)
-
-
-SERVICE_NAMES = (
-    "send_command", "save_profile", "apply_profile", "undo_apply", "delete_profile",
-    "rename_profile", "list_profiles", "export_profiles", "import_profiles",
-)
-
-
-@callback
-def async_unregister_services(hass: HomeAssistant) -> None:
-    for name in SERVICE_NAMES:
-        hass.services.async_remove(DOMAIN, name)

@@ -4,10 +4,14 @@ from __future__ import annotations
 
 import json
 import logging
+from typing import TYPE_CHECKING
 
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.typing import ConfigType
 
 from .api import KotelApiClient
 from .const import (
@@ -18,11 +22,26 @@ from .const import (
 )
 from .coordinator import KotelCoordinator
 from .profiles import KotelProfileManager
-from .services import async_register_services, async_unregister_services
+from .runtime import KotelRuntimeData
+from .services import async_register_services
+
+if TYPE_CHECKING:  # pragma: no cover - только для типов
+    from .runtime import KotelConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = ("sensor", "number", "switch", "climate", "select", "text", "button")
+# Настройка только через интерфейс (config flow), без YAML
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+
+PLATFORMS = [
+    Platform.SENSOR,
+    Platform.NUMBER,
+    Platform.SWITCH,
+    Platform.CLIMATE,
+    Platform.SELECT,
+    Platform.TEXT,
+    Platform.BUTTON,
+]
 
 
 def _reload_key(entry: ConfigEntry) -> str:
@@ -48,7 +67,21 @@ def _make_update_listener(entry: ConfigEntry):
     return _async_update_listener
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Службы и менеджер профилей общие для всех записей: создаются один раз.
+
+    Службы регистрируются здесь, а не при настройке записи: они должны быть
+    доступны, пока интеграция загружена, и сообщать понятную ошибку, если ни
+    одна запись ещё не работает.
+    """
+    manager = KotelProfileManager(hass)
+    await manager.async_load()
+    hass.data.setdefault(DOMAIN, {})["_profiles"] = manager
+    async_register_services(hass)
+    return True
+
+
+async def async_setup_entry(hass: HomeAssistant, entry: KotelConfigEntry) -> bool:
     """Настройка интеграции при добавлении через UI."""
     api = KotelApiClient(
         base_url=entry.data["url"],
@@ -64,38 +97,23 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     coordinator = KotelCoordinator(hass, api, scan_interval, config_entry=entry)
     await coordinator.async_config_entry_first_refresh()
 
-    hass.data.setdefault(DOMAIN, {})
     # Менеджер профилей один на всю интеграцию (профили хранятся по id контроллера)
-    manager = hass.data[DOMAIN].get("_profiles")
-    if manager is None:
-        manager = KotelProfileManager(hass)
-        await manager.async_load()
-        hass.data[DOMAIN]["_profiles"] = manager
-    manager.register_entry(entry.entry_id, coordinator, api)
+    hass.data[DOMAIN]["_profiles"].register_entry(entry.entry_id, coordinator, api)
 
-    hass.data[DOMAIN][entry.entry_id] = {
-        "api": api,
-        "coordinator": coordinator,
-    }
+    entry.runtime_data = KotelRuntimeData(api=api, coordinator=coordinator)
 
     entry.async_on_unload(entry.add_update_listener(_make_update_listener(entry)))
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    async_register_services(hass)
     return True
 
 
-async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def async_unload_entry(hass: HomeAssistant, entry: KotelConfigEntry) -> bool:
     """Выгрузка интеграции."""
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
-        domain_data = hass.data.get(DOMAIN, {})
-        data = domain_data.pop(entry.entry_id, None)
-        if data is not None:
-            await data["api"].close()
-        manager = domain_data.get("_profiles")
+        manager = hass.data.get(DOMAIN, {}).get("_profiles")
         if manager is not None:
             manager.unregister_entry(entry.entry_id)
-            if not manager.has_entries:
-                async_unregister_services(hass)
+        await entry.runtime_data.api.close()
     return unload_ok

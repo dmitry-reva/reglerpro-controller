@@ -17,9 +17,9 @@ from types import SimpleNamespace
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import ha_stubs  # noqa: E402
 
-if getattr(ha_stubs, "STUBS_VERSION", 0) < 4:
+if getattr(ha_stubs, "STUBS_VERSION", 0) < 5:
     raise RuntimeError(
-        "Устаревший tests/ha_stubs.py (нужна версия заглушек 4 или новее): "
+        "Устаревший tests/ha_stubs.py (нужна версия заглушек 5 или новее): "
         "скопируйте ha_stubs.py из последнего релиза рядом с тестами.")
 
 COMPONENT = Path(__file__).resolve().parent.parent / "custom_components" / "kotel"
@@ -103,8 +103,11 @@ class FakeAddApi:
 class AddSensorFlowTests(unittest.IsolatedAsyncioTestCase):
     def make_flow(self, result):
         flow = config_flow_mod.KotelOptionsFlow()
-        flow.config_entry = SimpleNamespace(entry_id="E1", data={"home_id": "H1"}, options={})
-        flow.hass = SimpleNamespace(data={const.DOMAIN: {"E1": {"api": FakeAddApi(result)}}})
+        flow.config_entry = SimpleNamespace(
+            entry_id="E1", data={"home_id": "H1"}, options={},
+            runtime_data=SimpleNamespace(api=FakeAddApi(result)))
+        flow.hass = SimpleNamespace(data={})
+        flow.async_abort = lambda **kw: {"type": "abort", **kw}
         flow.async_show_form = lambda **kw: {"type": "form", **kw}
         flow.async_create_entry = lambda **kw: {"type": "create", **kw}
         flow.async_show_menu = lambda **kw: {"type": "menu", **kw}

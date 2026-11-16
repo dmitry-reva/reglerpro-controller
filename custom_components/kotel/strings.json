@@ -130,7 +130,8 @@
       "no_controllers": "No Kotel controllers found.",
       "export_done": "Exported profiles: {count}. File: {path}. Download link: {url}",
       "import_done": "Imported profiles: {count}, skipped: {skipped}. Renamed: {renamed}",
-      "delete_done": "Deleted profiles: {count}."
+      "delete_done": "Deleted profiles: {count}.",
+      "not_loaded": "The integration is not loaded. Reload it and try again."
     }
   },
   "entity": {
