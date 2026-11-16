@@ -37,6 +37,7 @@ from .const import (
     ACTION_GET_BIG_CONTR,
     ACTION_GET_BIG_DT,
     API_PATH,
+    DEVICE_ID_PATTERN,
     KNOWN_SERVERS,
 )
 
@@ -55,6 +56,14 @@ _PRE_SEND_ERRORS = tuple(
         getattr(aiohttp, "ConnectionTimeoutError", None),
     ) if err is not None
 )
+
+
+_DEVICE_ID_RE = re.compile(DEVICE_ID_PATTERN)
+
+
+def is_valid_device_id(value) -> bool:
+    """Похоже ли значение на идентификатор устройства (строка из цифр, DEVICE_ID_PATTERN)."""
+    return isinstance(value, str) and _DEVICE_ID_RE.fullmatch(value) is not None
 
 
 def _redact(value):
@@ -357,13 +366,15 @@ class KotelApiClient:
             "action_value1": target_home_id,
             "action_value2": "",
         })
-        if isinstance(data, bool) or not isinstance(data, (str, int)):
-            raise KotelApiError(
-                "Некорректный ответ add_device: ожидался текстовый или числовой ID датчика"
-            )
-        sensor_id = str(data).strip()
-        if not sensor_id:
-            raise KotelApiError("Некорректный ответ add_device: ID датчика пуст")
+        # Сервер должен ответить идентификатором (цифры). Всё остальное — текст ошибки
+        # или сбой, и показывать его пользователю как «ID для настройки датчика» нельзя.
+        is_text_or_number = isinstance(data, (str, int)) and not isinstance(data, bool)
+        sensor_id = str(data).strip() if is_text_or_number else ""
+        if not is_valid_device_id(sensor_id):
+            snippet = self._describe(data)
+            raise KotelResponseError(
+                f"Некорректный ответ add_device: ожидался идентификатор датчика "
+                f"(цифры), получено {snippet}", snippet)
         return sensor_id
 
     async def get_all_devices(self) -> list:

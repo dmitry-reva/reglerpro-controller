@@ -35,7 +35,7 @@ from homeassistant.exceptions import (  # pyright: ignore[reportMissingImports]
 from homeassistant.helpers.storage import Store  # pyright: ignore[reportMissingImports]
 from homeassistant.util import dt as dt_util  # pyright: ignore[reportMissingImports]
 
-from .api import KotelApiError
+from .api import KotelApiError, is_valid_device_id
 from .const import (
     CLIMATE_TEMP_MAX,
     CLIMATE_TEMP_MIN,
@@ -68,6 +68,7 @@ EVENT_PROFILE_DELETED = "kotel_profile_deleted"
 
 # --- поведение применения (в тестах переопределяются) ------------------------
 WRITE_DELAY = 0.3          # пауза между командами, с
+SENSOR_NOT_FOUND = "датчик не найден среди датчиков этого дома"
 VERIFY_FIRST_WAIT = 2.0    # пауза перед первой проверкой, с
 VERIFY_INTERVAL = 4.0      # интервал повторных проверок, с
 VERIFY_TIMEOUT = 20.0      # сколько ждать подтверждения от контроллера, с
@@ -148,7 +149,7 @@ def validate_value(scope: str, key: str, value) -> str | None:
             return _check_range(value, CLIMATE_TEMP_MIN, CLIMATE_TEMP_MAX, CLIMATE_TEMP_STEP)
         return "неизвестный параметр"
     if scope == SCOPE_SENSOR:
-        ok = key == "tstatDtId" and isinstance(value, str) and bool(value)
+        ok = key == "tstatDtId" and is_valid_device_id(value)
         return None if ok else "недопустимый идентификатор датчика"
     return "неизвестная область"
 
@@ -405,8 +406,8 @@ def clean_values(raw) -> dict[str, dict]:
         items = {}
         for key, value in block.items():
             if scope == SCOPE_SENSOR:
-                if key == "tstatDtId" and isinstance(value, str) and value:
-                    items[key] = value[:64]
+                if key == "tstatDtId" and is_valid_device_id(value):
+                    items[key] = value
                 continue
             number = to_number(value) if not isinstance(value, bool) else None
             if number is None:
@@ -929,6 +930,15 @@ class KotelProfileManager:
             skipped_keys = {(s["scope"], s["key"]) for s in extra_skipped}
             ordered = [c for c in ordered if (c["scope"], c["key"]) not in skipped_keys]
 
+            # Датчик из профиля (особенно импортированного из другого дома) нельзя
+            # отправлять на сервер, пока он не найден среди датчиков этого дома.
+            rejected: list[dict] = []
+            if any(c["scope"] == SCOPE_SENSOR for c in ordered):
+                known = await self._known_sensor_ids(coordinator, api, dev_id, data)
+                rejected = [c for c in ordered
+                            if c["scope"] == SCOPE_SENSOR and c["to"] not in known]
+                ordered = [c for c in ordered if c not in rejected]
+
             report: dict[str, Any] = {
                 "profile": label, "device_id": dev_id, "dry_run": dry_run,
                 "changes": [{"scope": c["scope"], "key": c["key"],
@@ -936,6 +946,13 @@ class KotelProfileManager:
                 "unchanged": unchanged, "skipped": skipped,
                 "applied": 0, "failed": [], "unverified": [], "ok": True,
             }
+            for change in rejected:
+                problem = {"scope": change["scope"], "key": change["key"]}
+                if dry_run:
+                    report["skipped"].append({**problem, "reason": SENSOR_NOT_FOUND})
+                else:
+                    report["failed"].append({**problem, "error": SENSOR_NOT_FOUND})
+            report["ok"] = not report["failed"]
             if dry_run or not ordered:
                 return report
 
@@ -977,6 +994,23 @@ class KotelProfileManager:
 
             report["ok"] = not report["failed"] and not report["unverified"]
             return report
+
+    async def _known_sensor_ids(self, coordinator, api, dev_id: str, data: dict) -> set[str]:
+        """Датчики этого дома: из списка устройств, из ответа сервера и выбранный сейчас."""
+        known = {
+            str(device_id) for device_id, device in (coordinator.data or {}).items()
+            if device.get("type") == "dt"
+        }
+        current = (data.get("climate") or {}).get("sensor_id")
+        if current:
+            known.add(str(current))
+        try:
+            fetched = await api.get_climate_sensors(dev_id)
+        except KotelApiError as err:
+            _LOGGER.debug("get_climat_sensors не удался, список датчиков из get_all_dev: %s", err)
+            fetched = []
+        known.update(str(sensor["id_name"]) for sensor in fetched if sensor.get("id_name"))
+        return known
 
     async def _write(self, api, dev_id: str, change: dict) -> None:
         scope, key, value = change["scope"], change["key"], _wire(change["to"])

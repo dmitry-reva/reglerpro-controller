@@ -184,14 +184,14 @@ class WriteSafetyTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(c.active_url, WEB)
 
     async def test_add_sensor_is_not_retried_after_timeout(self):
-        c, s = client({APP: ("timeout",), WEB: ("ok", "S-1")})
+        c, s = client({APP: ("timeout",), WEB: ("ok", "3631427318216")})
         with self.assertRaises(api_mod.KotelApiError):
             await c.add_temperature_sensor()
         self.assertEqual(s.bases(), [APP])
 
     async def test_add_sensor_fails_over_when_unreachable(self):
-        c, s = client({APP: ("connect",), WEB: ("ok", "S-1")})
-        self.assertEqual(await c.add_temperature_sensor(), "S-1")
+        c, s = client({APP: ("connect",), WEB: ("ok", "3631427318216")})
+        self.assertEqual(await c.add_temperature_sensor(), "3631427318216")
 
     async def test_k_correction_shift_preserved_on_failover(self):
         c, s = client({APP: ("connect",), WEB: ("ok", {})})
