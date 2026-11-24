@@ -80,8 +80,8 @@ def build(source: Path, output: Path, expected_version: str | None = None) -> in
                 "В архиве есть префикс custom_components/ — HACS распакует его "
                 "в custom_components/kotel/custom_components/…"
             )
-        if "hacs.json" in names:
-            raise SystemExit("hacs.json не должен попадать в архив интеграции")
+        #if "hacs.json" in names:
+        #    raise SystemExit("hacs.json не должен попадать в архив интеграции")
 
         manifest = json.loads(archive.read("manifest.json"))
         if manifest.get("domain") != source.name:
@@ -95,6 +95,13 @@ def build(source: Path, output: Path, expected_version: str | None = None) -> in
                 raise SystemExit(
                     f"version в manifest.json ({actual}) не совпадает с тегом ({expected})"
                 )
+                
+        hacs_json_path = source.parent.parent / "hacs.json" # путь от custom_components/kotel к корню репо
+        if hacs_json_path.is_file():
+            archive.write(hacs_json_path, arcname="hacs.json")
+        else:
+            # Можно выдать предупреждение, но не прерывать сборку, если hacs.json нет
+            print("Предупреждение: hacs.json не найден в корне репозитория, архив может не установиться через Marketplace.")        
 
     return len(files)
 
