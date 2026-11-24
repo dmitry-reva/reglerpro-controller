@@ -70,6 +70,8 @@ EVENT_PROFILE_DELETED = "kotel_profile_deleted"
 # --- поведение применения (в тестах переопределяются) ------------------------
 WRITE_DELAY = 0.3          # пауза между командами, с
 SENSOR_NOT_FOUND = "датчик не найден среди датчиков этого дома"
+CLIMATE_OFF = "климат-контроль выключен: включите его и примените профиль снова"
+CLIMATE_NO_DATA = "нет актуальных данных климат-контроля: повторите позже"
 VERIFY_RETRY_TIMEOUT = 12.0  # сколько ждать подтверждения после повторной записи, с
 VERIFY_FIRST_WAIT = 2.0    # пауза перед первой проверкой, с
 VERIFY_INTERVAL = 4.0      # интервал повторных проверок, с
@@ -81,6 +83,9 @@ SCOPE_CLIMATE = "climate"
 SCOPE_SCHEDULE = "schedule"
 SCOPE_SENSOR = "climate_sensor"
 ALL_SCOPES = (SCOPE_BOILER, SCOPE_CLIMATE, SCOPE_SCHEDULE, SCOPE_SENSOR)
+# Области, которые относятся к климат-контролю: в приложении ReglerPro при выключенном
+# климате доступна только кнопка «Включить» (режим, температура, расписание и датчик скрыты)
+CLIMATE_SCOPES = (SCOPE_CLIMATE, SCOPE_SCHEDULE, SCOPE_SENSOR)
 DEFAULT_SCOPES = (SCOPE_BOILER,)
 
 # --- типы профилей -----------------------------------------------------------
@@ -155,6 +160,15 @@ def validate_value(scope: str, key: str, value) -> str | None:
         return None if ok else "недопустимый идентификатор датчика"
     return "неизвестная область"
 
+
+
+def _climate_block_reason(data: dict) -> str | None:
+    """Почему климатические значения сейчас записывать нельзя (None — можно)."""
+    if not data.get("detail_ok", True):
+        return CLIMATE_NO_DATA          # без детального ответа климат выглядит «выключенным»
+    if not (data.get("climate") or {}).get("enabled"):
+        return CLIMATE_OFF
+    return None
 
 
 def _is_online(data: dict) -> bool:
@@ -940,14 +954,28 @@ class KotelProfileManager:
             skipped_keys = {(s["scope"], s["key"]) for s in extra_skipped}
             ordered = [c for c in ordered if (c["scope"], c["key"]) not in skipped_keys]
 
+            # Что применять нельзя: значение и причина. В пробном запуске это «пропущено»,
+            # при настоящем применении — ошибка (профиль применён не полностью).
+            refused: list[tuple[dict, str]] = []
+
+            # Климат-контроль выключен (или о нём нет свежих данных): режим, температура,
+            # расписание и датчик не записываются. Включение климата в профили не входит
+            # (climat_on_off — переключатель). Параметр force отключает эту проверку.
+            climate_changes = [c for c in ordered if c["scope"] in CLIMATE_SCOPES]
+            if climate_changes and not force:
+                reason = _climate_block_reason(data)
+                if reason:
+                    refused.extend((c, reason) for c in climate_changes)
+                    ordered = [c for c in ordered if c not in climate_changes]
+
             # Датчик из профиля (особенно импортированного из другого дома) нельзя
             # отправлять на сервер, пока он не найден среди датчиков этого дома.
-            rejected: list[dict] = []
             if any(c["scope"] == SCOPE_SENSOR for c in ordered):
                 known = await self._known_sensor_ids(coordinator, api, dev_id, data)
-                rejected = [c for c in ordered
-                            if c["scope"] == SCOPE_SENSOR and c["to"] not in known]
-                ordered = [c for c in ordered if c not in rejected]
+                unknown = [c for c in ordered
+                           if c["scope"] == SCOPE_SENSOR and c["to"] not in known]
+                refused.extend((c, SENSOR_NOT_FOUND) for c in unknown)
+                ordered = [c for c in ordered if c not in unknown]
 
             report: dict[str, Any] = {
                 "profile": label, "device_id": dev_id, "dry_run": dry_run,
@@ -957,12 +985,12 @@ class KotelProfileManager:
                 "applied": 0, "failed": [], "unverified": [], "ok": True,
                 "confirmed_by_check": 0, "retried": 0,
             }
-            for change in rejected:
+            for change, reason in refused:
                 problem = {"scope": change["scope"], "key": change["key"]}
                 if dry_run:
-                    report["skipped"].append({**problem, "reason": SENSOR_NOT_FOUND})
+                    report["skipped"].append({**problem, "reason": reason})
                 else:
-                    report["failed"].append({**problem, "error": SENSOR_NOT_FOUND})
+                    report["failed"].append({**problem, "error": reason})
             report["ok"] = not report["failed"]
             if dry_run or not ordered:
                 return report

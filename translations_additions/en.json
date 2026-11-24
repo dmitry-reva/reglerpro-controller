@@ -58,5 +58,21 @@
     "abort": {
       "not_loaded": "The integration is not loaded. Reload it and try again."
     }
+  },
+  "services": {
+    "apply_profile": {
+      "fields": {
+        "force": {
+          "description": "Write even when the controller is offline or climate control is switched off."
+        }
+      }
+    },
+    "undo_apply": {
+      "fields": {
+        "force": {
+          "description": "Write even when the controller is offline or climate control is switched off."
+        }
+      }
+    }
   }
 }

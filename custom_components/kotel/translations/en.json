@@ -631,7 +631,7 @@
         },
         "force": {
           "name": "Ignore offline status",
-          "description": "Write even when the controller is offline."
+          "description": "Write even when the controller is offline or climate control is switched off."
         },
         "verify": {
           "name": "Verify result",
@@ -649,7 +649,7 @@
         },
         "force": {
           "name": "Ignore offline status",
-          "description": "Write even when the controller is offline."
+          "description": "Write even when the controller is offline or climate control is switched off."
         },
         "verify": {
           "name": "Verify result",
