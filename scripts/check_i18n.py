@@ -74,6 +74,40 @@ def collect_keys(files: list[Path]) -> set[str]:
     return keys
 
 
+def collect_service_names(tree: ast.Module) -> set[str]:
+    """Собрать имена служб из фактической регистрации в services.py.
+
+    Регистрация выглядит как ``register(DOMAIN, "имя", обработчик, ...)``, где
+    ``register = hass.services.async_register``. Имена берём только из таких
+    вызовов: отдельный список констант дублировал бы регистрацию и устаревал.
+    """
+    registered: set[str] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call) or not node.args:
+            continue
+        func = node.func
+        if isinstance(func, ast.Attribute):
+            attr = func.attr
+        elif isinstance(func, ast.Name):
+            attr = func.id
+        else:
+            continue
+        if attr not in {"async_register", "register"}:
+            continue
+        if len(node.args) < 2:
+            continue
+        domain, name = node.args[0], node.args[1]
+        if not (
+            isinstance(domain, ast.Name)
+            and domain.id == "DOMAIN"
+            and isinstance(name, ast.Constant)
+            and isinstance(name.value, str)
+        ):
+            continue
+        registered.add(name.value)
+    return registered
+
+
 def add_table_keys(value, keys: set[str]) -> None:
     """Добавить вторые элементы кортежей и первые элементы словарей."""
     if isinstance(value, (ast.Tuple, ast.List)):
@@ -138,18 +172,7 @@ def main() -> int:
         errors.append("Ключи без ссылки в коде: " + ", ".join(unused))
 
     services_tree = ast.parse((COMPONENT / "services.py").read_text(encoding="utf-8"))
-    service_names: set[str] = set()
-    for node in ast.walk(services_tree):
-        if isinstance(node, ast.Assign) and any(
-            isinstance(target, ast.Name) and target.id == "SERVICE_NAMES"
-            for target in node.targets
-        ):
-            if isinstance(node.value, (ast.Tuple, ast.List)):
-                service_names = {
-                    element.value
-                    for element in node.value.elts
-                    if isinstance(element, ast.Constant) and isinstance(element.value, str)
-                }
+    service_names = collect_service_names(services_tree)
     described = set(strings.get("services", {}))
     missing_services = sorted(service_names - described)
     extra_services = sorted(described - service_names)
