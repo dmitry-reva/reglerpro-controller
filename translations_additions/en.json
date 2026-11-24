@@ -90,5 +90,15 @@
         }
       }
     }
+  },
+  "entity": {
+    "number": {
+      "fan_damper": {
+        "name": "Fan damper"
+      },
+      "sensor_correction": {
+        "name": "Sensor temperature correction"
+      }
+    }
   }
 }

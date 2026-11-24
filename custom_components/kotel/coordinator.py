@@ -214,6 +214,8 @@ class KotelCoordinator(DataUpdateCoordinator):
                 "temp": dev.get("temp"),
                 # секунд с последнего сообщения датчика; None — сервер не сообщил
                 "time": to_number(dev.get("time")),
+                # коррекция датчика помещения, °C (в списке устройств приходит строкой "0")
+                "korect_dt": to_number(dev.get("korect_dt")),
                 "raw": dev,
             }
         return None

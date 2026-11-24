@@ -500,6 +500,12 @@
       },
       "schedule_m5_p4_d2_temp": {
         "name": "Schedule 4/1/2 (Sat–Sun): P4 temperature"
+      },
+      "fan_damper": {
+        "name": "Fan damper"
+      },
+      "sensor_correction": {
+        "name": "Sensor temperature correction"
       }
     },
     "switch": {
