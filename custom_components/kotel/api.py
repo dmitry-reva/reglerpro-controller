@@ -34,9 +34,11 @@ from .const import (
     ACTION_CLIMATE_RANGE,
     ACTION_CLIMATE_SELECT_SENSOR,
     ACTION_GET_ALL_DEV,
+    ACTION_GET_DATA_SETS,
     ACTION_GET_BIG_CONTR,
     ACTION_GET_BIG_CONTR_CHECK,
     ACTION_GET_BIG_DT,
+    ACTION_LOGIN_USER,
     API_PATH,
     DEVICE_ID_PATTERN,
     KNOWN_SERVERS,
@@ -84,7 +86,15 @@ class KotelApiError(Exception):
 
 
 class KotelAuthError(KotelApiError):
-    """Сервер отклонил учётные данные (HTTP 401/403 или ответ, похожий на отказ)."""
+    """Сервер отклонил учётные данные (HTTP 401/403 или ответ, похожий на отказ).
+
+    server_text — пояснение сервера (поле text ответа login_user), очищенное от
+    разметки и без логина и пароля; пустое, если сервер ничего не пояснил.
+    """
+
+    def __init__(self, message: str, server_text: str = "") -> None:
+        super().__init__(message)
+        self.server_text = server_text
 
 
 class KotelTimeoutError(KotelApiError):
@@ -350,6 +360,73 @@ class KotelApiClient:
     # ------------------------------------------------------------------
     # Запросы
     # ------------------------------------------------------------------
+    def _clean_text(self, value, limit: int = 160) -> str:
+        """Текст из ответа сервера для показа пользователю: без разметки и секретов."""
+        if value is None:
+            return ""
+        text = re.sub(r"<[^>]*>", " ", str(value))
+        text = re.sub(r"\s+", " ", text).strip()
+        for secret in (self._password, self._login):
+            if secret and len(secret) >= 3:
+                text = text.replace(secret, "***")
+        return text if len(text) <= limit else text[: limit - 3] + "..."
+
+    async def login_user(self) -> dict:
+        """Проверить логин и пароль запросом login_user (как приложение ReglerPro).
+
+        Номер дома не нужен. Ответ — словарь: `bool` (успех) и `text` (пояснение при
+        отказе). Отказ — KotelAuthError; ответ без поля `bool` — KotelResponseError.
+        """
+        data = await self._post({
+            "action": ACTION_LOGIN_USER,
+            "login": self._login,
+            "password": self._password,
+            "action_value1": "",
+            "action_value2": "",
+        }, idempotent=True, expect=dict)
+        if "bool" not in data:
+            snippet = self._describe(data)
+            raise KotelResponseError(
+                f"Неожиданный ответ login_user: {snippet}", snippet)
+        if not data["bool"]:               # как в приложении: !data.bool
+            text = self._clean_text(data.get("text"))
+            raise KotelAuthError(
+                f"Сервер отклонил вход{': ' + text if text else ''}", server_text=text)
+        return data
+
+    async def get_homes(self) -> dict[str, str]:
+        """Дома пользователя: {номер дома: название} (запрос get_data_sets).
+
+        Пустой словарь — у учётной записи нет домов. Ответ другого вида —
+        KotelResponseError: тогда номер дома остаётся вводить вручную.
+        """
+        data = await self._post({
+            "action": ACTION_GET_DATA_SETS,
+            "login": self._login,
+            "password": self._password,
+            "action_value1": "",
+            "action_value2": "",
+        }, idempotent=True, expect=dict)
+        if "bool" in data and not data["bool"]:
+            text = self._clean_text(data.get("text"))
+            raise KotelAuthError(
+                f"Сервер отклонил вход{': ' + text if text else ''}", server_text=text)
+        if "homes" not in data:
+            snippet = self._describe(data)
+            raise KotelResponseError(
+                f"В ответе get_data_sets нет списка домов: {snippet}", snippet)
+        homes = data["homes"]
+        if homes in (None, "", [], {}):
+            return {}
+        if isinstance(homes, dict):
+            return {
+                str(home_id): self._clean_text(name, 80) or str(home_id)
+                for home_id, name in homes.items()
+            }
+        snippet = self._describe(homes)
+        raise KotelResponseError(
+            f"Список домов в get_data_sets неожиданного вида: {snippet}", snippet)
+
     async def add_temperature_sensor(self, home_id: str | None = None) -> str:
         """Получить новый ID датчика температуры для настройки его Wi-Fi."""
         target_home_id = (home_id or self._home_id).strip()

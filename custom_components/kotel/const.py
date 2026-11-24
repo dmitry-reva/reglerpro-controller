@@ -30,6 +30,9 @@ ACTION_GET_BIG_DT = "get_big_dt"
 # Проверка записанного значения: приложение запрашивает её после каждой записи
 ACTION_GET_BIG_CONTR_CHECK = "get_big_contr_check"
 ACTION_ADD_DEVICE = "add_device"
+# Проверка логина и пароля без номера дома (reglog.js) и список домов пользователя (sets.js)
+ACTION_LOGIN_USER = "login_user"
+ACTION_GET_DATA_SETS = "get_data_sets"
 
 # Датчик температуры (dt): если с его последнего сообщения прошло не меньше
 # этого числа секунд, он считается не в сети, а его температура устаревшей.

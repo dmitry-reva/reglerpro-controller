@@ -1,6 +1,7 @@
 """Config flow для интеграции Kotel."""
 
 import asyncio
+import logging
 import os
 import re
 import shutil
@@ -57,36 +58,78 @@ STEP_USER_DATA_SCHEMA = vol.Schema({
 })
 
 
+_LOGGER = logging.getLogger(__name__)
+
 ON_CONFLICT_OPTIONS = ["rename", "overwrite", "skip"]   # подписи — selector.on_conflict
 
 
+def _client(hass, data) -> KotelApiClient:
+    return KotelApiClient(
+        base_url=data["url"],
+        login=data["login"],
+        password=data["password"],
+        home_id=(data.get("home_id") or "").strip(),
+        session=async_get_clientsession(hass),
+    )
+
+
+def _map_error(err: KotelApiError) -> tuple[str, str]:
+    """Ошибка API -> (ключ ошибки окна, выдержка из ответа сервера для сообщения)."""
+    if isinstance(err, KotelAuthError):
+        # пояснение сервера (login_user.text) показываем, если оно есть
+        return ("login_rejected", err.server_text) if err.server_text else ("invalid_auth", "")
+    if isinstance(err, KotelResponseError):
+        return "unexpected_response", err.snippet
+    if isinstance(err, KotelTimeoutError):
+        # при неверном номере дома у пользователя без домов сервер не отвечает вовсе
+        return "no_response", ""
+    return "cannot_connect", ""
+
+
+async def _check_login(hass, data) -> tuple[str | None, str]:
+    """Проверить логин и пароль запросом login_user (номер дома не нужен).
+
+    Возвращает (ключ ошибки или None, выдержка из ответа сервера для сообщения).
+    """
+    try:
+        await _client(hass, data).login_user()
+    except KotelApiError as err:
+        return _map_error(err)
+    return None, ""
+
+
+async def _load_homes(hass, data) -> dict[str, str] | None:
+    """Дома учётной записи {номер: название}; None — список получить не удалось.
+
+    Тогда номер дома остаётся вводить вручную (прежний порядок), а принадлежность
+    дома пользователю не проверяется.
+    """
+    try:
+        return await _client(hass, data).get_homes()
+    except KotelApiError as err:
+        _LOGGER.debug("Список домов не получен: %s", err)
+        return None
+
+
 async def _check_credentials(hass, data) -> tuple[str | None, str]:
-    """Проверить учётные данные запросом списка устройств.
+    """Проверить, что по этому номеру дома есть устройства (запрос get_all_dev).
 
     Возвращает (ключ ошибки или None, выдержка из ответа сервера для сообщения).
     """
     home_id = (data.get("home_id") or "").strip()
-    api = KotelApiClient(
-        base_url=data["url"],
-        login=data["login"],
-        password=data["password"],
-        home_id=home_id,
-        session=async_get_clientsession(hass),
-    )
     try:
-        devices = await api.get_all_devices()
-    except KotelAuthError:
-        return "invalid_auth", ""
-    except KotelResponseError as err:
-        return "unexpected_response", err.snippet
-    except KotelTimeoutError:
-        # при неверном номере дома у пользователя без домов сервер не отвечает вовсе
-        return "no_response", ""
-    except KotelApiError:
-        return "cannot_connect", ""
+        devices = await _client(hass, data).get_all_devices()
+    except KotelApiError as err:
+        return _map_error(err)
     if devices:
         return None, ""
     return ("no_devices" if home_id else "no_home_id"), ""
+
+
+def _homes_text(homes: dict[str, str], limit: int = 5) -> str:
+    items = [f"{name} ({home_id})" for home_id, name in homes.items()]
+    text = ", ".join(items[:limit])
+    return text + (f", ещё {len(items) - limit}" if len(items) > limit else "")
 
 
 def _is_valid_server_url(url: str) -> bool:
@@ -173,30 +216,46 @@ class KotelConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
+    def __init__(self) -> None:
+        super().__init__()
+        self._pending: dict = {}            # введённые данные, пока выбирается дом
+        self._homes: dict[str, str] | None = None
+
     async def async_step_user(self, user_input=None):
-        """Первый шаг — ввод учётных данных."""
+        """Первый шаг: сервер, логин и пароль; номер дома можно не вводить."""
         errors = {}
-        placeholders = {"response": ""}
+        placeholders = {"response": "", "homes": ""}
 
         if user_input is not None:
-            # Одна запись на связку «логин + дом»: на разных серверах учётная запись
-            # одна и та же, поэтому адрес сервера в идентификатор не входит.
             home_id = (user_input.get("home_id") or "").strip()
-            login = user_input["login"].strip()
-            user_input = {**user_input, "url": user_input["url"].strip().rstrip("/")}
-            await self.async_set_unique_id(f"{login.casefold()}|{home_id}")
-            self._abort_if_unique_id_configured()
-            if self._account_already_configured(login, home_id):
-                return self.async_abort(reason="already_configured")
+            data = {**user_input, "url": user_input["url"].strip().rstrip("/"),
+                    "home_id": home_id}
 
-            # Проверяем соединение и учётные данные
-            error, response = await _check_credentials(
-                self.hass, {**user_input, "home_id": home_id})
+            # 1. логин и пароль (login_user — без номера дома)
+            error, response = await _check_login(self.hass, data)
             if error is None:
-                return self.async_create_entry(
-                    title=f"ReglerPro ({home_id or user_input['login']})",
-                    data=user_input,
-                )
+                # 2. дома учётной записи (для выбора и проверки принадлежности)
+                homes = await _load_homes(self.hass, data)
+                if home_id:
+                    if homes is not None and home_id not in homes:
+                        error = "home_not_found"
+                        placeholders["homes"] = _homes_text(homes) or "—"
+                    else:
+                        result, error, response = await self._try_create(data, homes)
+                        if result is not None:
+                            return result
+                elif homes is None:
+                    error = "no_home_id"            # список домов недоступен: ввести вручную
+                elif not homes:
+                    error = "no_homes"
+                elif len(homes) == 1:
+                    data["home_id"] = next(iter(homes))
+                    result, error, response = await self._try_create(data, homes)
+                    if result is not None:
+                        return result
+                else:
+                    self._pending, self._homes = data, homes
+                    return await self.async_step_select_home()
             errors["base"] = error
             placeholders["response"] = response
 
@@ -206,6 +265,51 @@ class KotelConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
             description_placeholders=placeholders,
         )
+
+    async def async_step_select_home(self, user_input=None):
+        """Выбор дома из списка домов учётной записи."""
+        errors = {}
+        placeholders = {"response": ""}
+        homes = self._homes or {}
+        if user_input is not None:
+            data = {**self._pending, "home_id": user_input["home_id"]}
+            result, error, response = await self._try_create(data, homes)
+            if result is not None:
+                return result
+            errors["base"] = error
+            placeholders["response"] = response
+        options = [{"value": home_id, "label": f"{name} ({home_id})"}
+                   for home_id, name in homes.items()]
+        return self.async_show_form(
+            step_id="select_home",
+            data_schema=vol.Schema({
+                vol.Required("home_id"): SelectSelector(
+                    SelectSelectorConfig(options=options, mode=SelectSelectorMode.DROPDOWN)),
+            }),
+            errors=errors,
+            description_placeholders=placeholders,
+        )
+
+    async def _try_create(self, data: dict, homes: dict[str, str] | None):
+        """Создать запись для выбранного дома.
+
+        Возвращает (результат потока, None, "") или (None, ключ ошибки, выдержка).
+        """
+        home_id = data["home_id"]
+        # Одна запись на связку «логин + дом»: на разных серверах учётная запись одна и
+        # та же, поэтому адрес сервера в идентификатор не входит.
+        await self.async_set_unique_id(f"{data['login'].strip().casefold()}|{home_id}")
+        self._abort_if_unique_id_configured()
+        if self._account_already_configured(data["login"], home_id):
+            return self.async_abort(reason="already_configured"), None, ""
+        error, response = await _check_credentials(self.hass, data)
+        if error is not None:
+            return None, error, response
+        name = (homes or {}).get(home_id)
+        return self.async_create_entry(
+            title=f"ReglerPro ({name or home_id or data['login']})",
+            data=data,
+        ), None, ""
 
     # --- повторная авторизация -------------------------------------------------
     async def async_step_reauth(self, entry_data):
@@ -218,7 +322,7 @@ class KotelConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         placeholders = {"login": entry.data.get("login", ""), "response": ""}
         if user_input is not None:
             data = {**entry.data, "password": user_input["password"]}
-            error, response = await _check_credentials(self.hass, data)
+            error, response = await _check_login(self.hass, data)
             if error is None:
                 # Перезагружаем запись явно, а не через слушатель изменений: если
                 # первый опрос закончился отказом, слушателя ещё нет, а после отказа

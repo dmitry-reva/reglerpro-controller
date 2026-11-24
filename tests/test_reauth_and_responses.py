@@ -356,7 +356,9 @@ class EmptyListTests(unittest.IsolatedAsyncioTestCase):
 
 
 class FakeCheckApi:
-    result = None
+    result = None                       # ответ get_all_devices
+    login_result = None                 # login_user: None — успех, исключение — отказ
+    homes_result = {"H1": "Дом"}        # get_homes: словарь или исключение
     created: list = []
 
     def __init__(self, **kwargs):
@@ -367,10 +369,22 @@ class FakeCheckApi:
             raise FakeCheckApi.result
         return FakeCheckApi.result
 
+    async def login_user(self):
+        if isinstance(FakeCheckApi.login_result, Exception):
+            raise FakeCheckApi.login_result
+        return {"bool": True}
+
+    async def get_homes(self):
+        if isinstance(FakeCheckApi.homes_result, Exception):
+            raise FakeCheckApi.homes_result
+        return FakeCheckApi.homes_result
+
 
 class CheckCredentialsTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         FakeCheckApi.created = []
+        FakeCheckApi.login_result = None
+        FakeCheckApi.homes_result = {"H1": "Дом"}
         self._orig = config_flow_mod.KotelApiClient
         config_flow_mod.KotelApiClient = FakeCheckApi
 
@@ -427,6 +441,8 @@ def make_flow(entry_data=None):
 class ReauthFlowTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         FakeCheckApi.created = []
+        FakeCheckApi.login_result = None
+        FakeCheckApi.homes_result = {"H1": "Дом"}
         self._orig = config_flow_mod.KotelApiClient
         config_flow_mod.KotelApiClient = FakeCheckApi
 
@@ -440,14 +456,14 @@ class ReauthFlowTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["description_placeholders"]["login"], "u")
 
     async def test_wrong_password_keeps_form_and_changes_nothing(self):
-        FakeCheckApi.result = KotelAuthError("Wrong password")
+        FakeCheckApi.login_result = KotelAuthError("Wrong password")
         flow, _, calls = make_flow()
         result = await flow.async_step_reauth_confirm({"password": "bad"})
         self.assertEqual(result["errors"], {"base": "invalid_auth"})
         self.assertEqual((calls.update, calls.reload), ([], []))
 
     async def test_unexpected_response_is_shown(self):
-        FakeCheckApi.result = KotelResponseError("x", "dict: {'a': 1}")
+        FakeCheckApi.login_result = KotelResponseError("x", "dict: {'a': 1}")
         flow, _, _ = make_flow()
         result = await flow.async_step_reauth_confirm({"password": "p"})
         self.assertEqual(result["errors"], {"base": "unexpected_response"})
@@ -471,12 +487,12 @@ class ReauthFlowTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(calls.reload, ["E1"])
 
     async def test_user_step_reports_auth_error_and_creates_nothing(self):
-        FakeCheckApi.result = KotelAuthError("HTTP 401")
+        FakeCheckApi.login_result = KotelAuthError("HTTP 401")
         flow, _, _ = make_flow()
         user_input = {"url": APP, "login": "u", "password": "bad", "home_id": "H1"}
         result = await flow.async_step_user(user_input)
         self.assertEqual(result["errors"], {"base": "invalid_auth"})
-        self.assertEqual(result["description_placeholders"], {"response": ""})
+        self.assertEqual(result["description_placeholders"], {"response": "", "homes": ""})
 
     async def test_user_step_creates_entry_without_closing_shared_session(self):
         FakeCheckApi.result = DEVICES                                # у FakeCheckApi нет close()
@@ -485,6 +501,7 @@ class ReauthFlowTests(unittest.IsolatedAsyncioTestCase):
             {"url": APP + "/", "login": "u", "password": "p", "home_id": "H1"})
         self.assertEqual(result["type"], "create")
         self.assertEqual(result["data"]["url"], APP)
+        self.assertEqual(result["title"], "ReglerPro (Дом)")
 
 
 class StringsTests(unittest.TestCase):

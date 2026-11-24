@@ -9,6 +9,9 @@
           "login": "Login",
           "password": "Password",
           "home_id": "Home ID"
+        },
+        "data_description": {
+          "home_id": "Leave empty to choose from the homes of this account."
         }
       },
       "reauth_confirm": {
@@ -17,15 +20,25 @@
         "data": {
           "password": "Password"
         }
+      },
+      "select_home": {
+        "title": "Choose a home",
+        "description": "Choose the home to connect.",
+        "data": {
+          "home_id": "Home"
+        }
       }
     },
     "error": {
       "cannot_connect": "Cannot connect to the server",
-      "no_home_id": "No devices found. Specify the home ID",
+      "no_home_id": "The list of homes is not available. Enter the Home ID.",
       "no_devices": "No devices found for this home ID",
       "invalid_auth": "Wrong login or password",
       "unexpected_response": "The server returned an unexpected response: {response}",
-      "no_response": "The server did not respond. If the Home ID is wrong, the server may not answer at all: check the Home ID, login and password."
+      "no_response": "The server did not respond. If the Home ID is wrong, the server may not answer at all: check the Home ID, login and password.",
+      "login_rejected": "The server rejected the login: {response}",
+      "no_homes": "This account has no homes.",
+      "home_not_found": "This Home ID is not among the homes of this account: {homes}"
     },
     "abort": {
       "already_configured": "This account is already configured.",
