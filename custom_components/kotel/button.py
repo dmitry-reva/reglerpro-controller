@@ -52,9 +52,22 @@ async def async_setup_entry(hass, entry: KotelConfigEntry, async_add_entities):
     )
 
 
+def _problems(report: dict, limit: int = 5) -> str:
+    """Какие именно значения не записались или не подтверждены."""
+    items = [f"{p['scope']}.{p['key']}: {p.get('error', 'ошибка')}" for p in report["failed"]]
+    items += [f"{p['scope']}.{p['key']} (ожидалось {p.get('expected')}, "
+              f"получено {p.get('actual')})" for p in report["unverified"]]
+    text = "; ".join(items[:limit])
+    return text + (f"; ещё {len(items) - limit}" if len(items) > limit else "")
+
+
 def _summary(report: dict) -> str:
-    return (f"применено {report['applied']}, ошибок {len(report['failed'])}, "
+    text = (f"применено {report['applied']}, ошибок {len(report['failed'])}, "
             f"не подтверждено {len(report['unverified'])}, пропущено {len(report['skipped'])}")
+    if report.get("retried"):
+        text += f", повторно записано {report['retried']}"
+    problems = _problems(report)
+    return text + (f". Проблемы: {problems}" if problems else "")
 
 
 class KotelProfileButton(KotelEntity, ButtonEntity):

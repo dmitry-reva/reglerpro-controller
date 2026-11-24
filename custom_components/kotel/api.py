@@ -35,6 +35,7 @@ from .const import (
     ACTION_CLIMATE_SELECT_SENSOR,
     ACTION_GET_ALL_DEV,
     ACTION_GET_BIG_CONTR,
+    ACTION_GET_BIG_CONTR_CHECK,
     ACTION_GET_BIG_DT,
     API_PATH,
     DEVICE_ID_PATTERN,
@@ -401,6 +402,23 @@ class KotelApiClient:
         payload = {
             "action": ACTION_GET_BIG_CONTR,
             "id_name": device_id,
+            "login": self._login,
+            "password": self._password,
+            "action_value1": "",
+            "action_value2": "",
+        }
+        return await self._post(payload, idempotent=True, expect=dict)
+
+    async def get_controller_check(self, device_id: str) -> dict:
+        """Данные контроллера для проверки записанного значения (get_big_contr_check).
+
+        Это запрос, которым приложение ReglerPro проверяет результат записи: через 2 с
+        после команды и затем раз в секунду, до 7 раз. Формат ответа — как у get_big_contr.
+        """
+        payload = {
+            "action": ACTION_GET_BIG_CONTR_CHECK,
+            "id_name": device_id,
+            "userId": self._home_id,
             "login": self._login,
             "password": self._password,
             "action_value1": "",
