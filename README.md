@@ -327,8 +327,8 @@ data:
 custom_components/kotel/   код интеграции
 tests/                     юнит-тесты на заглушках Home Assistant (ha_stubs.py)
 tools/                     скрипты диагностики (kotel_probe.py, scrub_log.py)
-DIAGNOSTICS.md             инструкция по диагностике
-AUDIT.md                   аудит интеграции и план работ
+docs/DIAGNOSTICS.md        инструкция по диагностике
+docs/AUDIT.md              аудит интеграции и план работ
 RELEASE_NOTES.md           история версий
 ```
 
