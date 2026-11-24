@@ -62,10 +62,24 @@ def build(source: Path, output: Path, expected_version: str | None = None) -> in
     if not files:
         raise SystemExit(f"В {source} нет файлов")
 
+    entries = [(path, path.relative_to(source).as_posix()) for path in files]
+
+    # hacs.json лежит в корне репозитория, а не в каталоге интеграции. Добавляем
+    # его в тот же проход записи: дописывать в архив, открытый на чтение, нельзя.
+    hacs_json_path = source.parent.parent / "hacs.json"
+    if "hacs.json" in {arcname for _, arcname in entries}:
+        pass  # уже попал из каталога интеграции — второй записи не нужно
+    elif hacs_json_path.is_file():
+        entries.append((hacs_json_path, "hacs.json"))
+    else:
+        print(
+            "Предупреждение: hacs.json не найден в корне репозитория, "
+            "архив может не установиться через Marketplace."
+        )
+
     output.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
-        for path in files:
-            arcname = path.relative_to(source).as_posix()
+        for path, arcname in entries:
             info = zipfile.ZipInfo(arcname, date_time=(1980, 1, 1, 0, 0, 0))
             info.compress_type = zipfile.ZIP_DEFLATED
             info.external_attr = 0o644 << 16
@@ -80,8 +94,6 @@ def build(source: Path, output: Path, expected_version: str | None = None) -> in
                 "В архиве есть префикс custom_components/ — HACS распакует его "
                 "в custom_components/kotel/custom_components/…"
             )
-        #if "hacs.json" in names:
-        #    raise SystemExit("hacs.json не должен попадать в архив интеграции")
 
         manifest = json.loads(archive.read("manifest.json"))
         if manifest.get("domain") != source.name:
@@ -95,13 +107,6 @@ def build(source: Path, output: Path, expected_version: str | None = None) -> in
                 raise SystemExit(
                     f"version в manifest.json ({actual}) не совпадает с тегом ({expected})"
                 )
-                
-        hacs_json_path = source.parent.parent / "hacs.json" # путь от custom_components/kotel к корню репо
-        if hacs_json_path.is_file():
-            archive.write(hacs_json_path, arcname="hacs.json")
-        else:
-            # Можно выдать предупреждение, но не прерывать сборку, если hacs.json нет
-            print("Предупреждение: hacs.json не найден в корне репозитория, архив может не установиться через Marketplace.")        
 
     return len(files)
 

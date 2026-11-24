@@ -67,6 +67,51 @@ class BuildReleaseZipTest(unittest.TestCase):
         with self.assertRaises(SystemExit):
             builder.build(self.source, self.output)
 
+    def _write_root_hacs_json(self, payload=None) -> Path:
+        """hacs.json рядом с репозиторием: корень = source.parent.parent."""
+        path = self.source.parent.parent / "hacs.json"
+        path.write_text(json.dumps(payload or {"filename": "kotel.zip"}),
+                        encoding="utf-8")
+        self.addCleanup(path.unlink, missing_ok=True)
+        return path
+
+    def test_hacs_json_at_root_is_added_to_archive(self):
+        """Регресс: в открытый на чтение архив писать нельзя (ValueError)."""
+        self._write_root_hacs_json({"filename": "kotel.zip"})
+        count = builder.build(self.source, self.output, "v1.4.1")
+        self.assertEqual(count, 4)
+        with zipfile.ZipFile(self.output) as archive:
+            names = archive.namelist()
+            self.assertIn("hacs.json", names)
+            self.assertEqual(json.loads(archive.read("hacs.json")),
+                             {"filename": "kotel.zip"})
+            self.assertIn("manifest.json", names)
+            self.assertEqual(len(names), len(set(names)))
+
+    def test_missing_hacs_json_only_warns(self):
+        count = builder.build(self.source, self.output, "v1.4.1")
+        self.assertEqual(count, 4)
+        with zipfile.ZipFile(self.output) as archive:
+            self.assertNotIn("hacs.json", archive.namelist())
+
+    def test_duplicate_hacs_json_from_source_is_not_written_twice(self):
+        """Если hacs.json попал в source, второй такой же записи быть не должно."""
+        (self.source / "hacs.json").write_text('{"source": true}', encoding="utf-8")
+        self._write_root_hacs_json({"root": True})
+        count = builder.build(self.source, self.output, "v1.4.1")
+        self.assertEqual(count, 5)
+        with zipfile.ZipFile(self.output) as archive:
+            names = archive.namelist()
+            self.assertEqual(names.count("hacs.json"), 1)
+            self.assertEqual(json.loads(archive.read("hacs.json")), {"source": True})
+
+    def test_repeated_builds_are_byte_identical(self):
+        self._write_root_hacs_json({"filename": "kotel.zip"})
+        builder.build(self.source, self.output, "v1.4.1")
+        first = self.output.read_bytes()
+        builder.build(self.source, self.output, "v1.4.1")
+        self.assertEqual(first, self.output.read_bytes())
+
 
 if __name__ == "__main__":
     unittest.main()
