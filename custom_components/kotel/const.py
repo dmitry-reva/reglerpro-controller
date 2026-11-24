@@ -27,11 +27,22 @@ DEVICE_TYPE_DT = "dt"
 ACTION_GET_ALL_DEV = "get_all_dev"
 ACTION_GET_BIG_CONTR = "get_big_contr"
 ACTION_GET_BIG_DT = "get_big_dt"
+# Проверка записанного значения: приложение запрашивает её после каждой записи
+ACTION_GET_BIG_CONTR_CHECK = "get_big_contr_check"
 ACTION_ADD_DEVICE = "add_device"
+# Проверка логина и пароля без номера дома (reglog.js) и список домов пользователя (sets.js)
+ACTION_LOGIN_USER = "login_user"
+ACTION_GET_DATA_SETS = "get_data_sets"
 
 # Датчик температуры (dt): если с его последнего сообщения прошло не меньше
 # этого числа секунд, он считается не в сети, а его температура устаревшей.
-DT_STALE_SECONDS = 300
+# Как в приложении ReglerPro (functions.js: dev.time < 1800).
+DT_STALE_SECONDS = 1800
+
+# Контроллер с mqtt_online = 0 ещё считается «в сети» первые секунды после
+# отключения (functions.js: mqtt_offline_time < 600), чтобы короткий обрыв связи
+# не выглядел как отключение.
+CONTROLLER_OFFLINE_GRACE_SECONDS = 600
 
 # Вид идентификатора устройства (контроллера и датчика): только цифры, 8–20 знаков
 # (в ответах сервера все идентификаторы — 13 цифр). Нужен, чтобы не принять за

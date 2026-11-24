@@ -16,7 +16,12 @@ from homeassistant.helpers.update_coordinator import (  # type: ignore[import-no
 )
 
 from .api import KotelApiClient, KotelApiError, KotelAuthError
-from .const import DEFAULT_SCAN_INTERVAL, DOMAIN, DT_STALE_SECONDS
+from .const import (
+    CONTROLLER_OFFLINE_GRACE_SECONDS,
+    DEFAULT_SCAN_INTERVAL,
+    DOMAIN,
+    DT_STALE_SECONDS,
+)
 from .params_parser import get_params
 
 _LOGGER = logging.getLogger(__name__)
@@ -77,6 +82,21 @@ def to_number(value):
     return number
 
 
+def controller_online(mqtt_online, mqtt_offline_time) -> bool:
+    """Контроллер «в сети» — как в приложении ReglerPro (functions.js).
+
+    mqtt_online = 1 — в сети. mqtt_online = 0 — ещё в сети, если с отключения прошло
+    меньше CONTROLLER_OFFLINE_GRACE_SECONDS. Нет данных — не в сети.
+    """
+    flag = str(mqtt_online).strip().lower()
+    if flag in ("1", "true"):                   # строго, как mqtt_online === '1' в приложении
+        return True
+    if flag in ("0", "false"):
+        seconds = to_number(mqtt_offline_time)
+        return seconds is not None and seconds < CONTROLLER_OFFLINE_GRACE_SECONDS
+    return False
+
+
 def _parse_climate(pick) -> dict:
     """Собрать данные климат-контроля из ответа контроллера.
 
@@ -135,6 +155,7 @@ class KotelCoordinator(DataUpdateCoordinator):
         self._had_success = False
         self._auth_failures = 0
         self._empty_streak = 0
+        self._bad_devices: set[str] = set()
 
     @property
     def api(self) -> KotelApiClient:
@@ -148,6 +169,56 @@ class KotelCoordinator(DataUpdateCoordinator):
             return ConfigEntryAuthFailed(str(err))
         return UpdateFailed(
             f"{err} (отказ {self._auth_failures} из {AUTH_FAILURES_BEFORE_REAUTH})")
+
+    def _build_device(self, dev: dict, details_by_id: dict):
+        """Данные одного устройства из списка: (id, словарь) или None."""
+        dev_type = dev.get("type")
+        dev_id = dev.get("id_name", "")
+        dev_name = dev.get("name", dev_id)
+        if not dev_id:
+            return None
+
+        if dev_type == "contr":
+            details = details_by_id.get(dev_id) or dev
+
+            def pick(key, default=None, _details=details, _dev=dev):
+                # детальные данные приоритетнее, но если поля нет — берём из списка
+                value = _details.get(key)
+                return value if value is not None else _dev.get(key, default)
+
+            params = get_params(pick("params", ""))
+            return dev_id, {
+                "type": "contr",
+                "name": dev_name,
+                "id": dev_id,
+                "params": params,
+                # False — детальный ответ get_big_contr не получен, данные
+                # взяты из списка устройств и могут быть неполными
+                # (в них может не быть tstatArr и других полей климата)
+                "detail_ok": bool(details_by_id.get(dev_id)),
+                # приводим к "1"/"0", как ожидают сенсоры и проверки профилей
+                "mqtt_online": "1" if _truthy(pick("mqtt_online", 0)) else "0",
+                "mqtt_offline_time": to_number(pick("mqtt_offline_time")),
+                # «в сети» по правилу приложения (с запасом после обрыва)
+                "online": controller_online(pick("mqtt_online"), pick("mqtt_offline_time")),
+                "climate": _parse_climate(pick),
+                "raw": details,
+                "list_raw": dev,  # элемент из get_all_dev (для диагностики)
+            }
+
+        if dev_type == "dt":
+            return dev_id, {
+                "type": "dt",
+                "name": dev_name,
+                "id": dev_id,
+                "temp": dev.get("temp"),
+                # секунд с последнего сообщения датчика; None — сервер не сообщил
+                "time": to_number(dev.get("time")),
+                # коррекция датчика помещения, °C (в списке устройств приходит строкой "0")
+                "korect_dt": to_number(dev.get("korect_dt")),
+                "raw": dev,
+            }
+        return None
 
     async def _async_update_data(self) -> dict:
         """Получить свежие данные всех устройств.
@@ -206,49 +277,23 @@ class KotelCoordinator(DataUpdateCoordinator):
                 details_by_id[dev_id] = result or {}
 
         result_data = {}
+        bad_now: set[str] = set()
 
         for dev in devices:
-            dev_type = dev.get("type")
-            dev_id = dev.get("id_name", "")
-            dev_name = dev.get("name", dev_id)
-            if not dev_id:
+            try:
+                built = self._build_device(dev, details_by_id)
+            except Exception as err:  # noqa: BLE001
+                # Один испорченный элемент списка не должен останавливать опрос
+                # остальных устройств (как в приложении: ошибка карточки изолирована).
+                bad_id = str(dev.get("id_name", "?"))
+                bad_now.add(bad_id)
+                if bad_id not in self._bad_devices:
+                    _LOGGER.warning(
+                        "Элемент списка устройств %s пропущен: %s", bad_id, type(err).__name__)
                 continue
-
-            if dev_type == "contr":
-                details = details_by_id.get(dev_id) or dev
-
-                def pick(key, default=None, _details=details, _dev=dev):
-                    # детальные данные приоритетнее, но если поля нет — берём из списка
-                    value = _details.get(key)
-                    return value if value is not None else _dev.get(key, default)
-
-                params = get_params(pick("params", ""))
-                result_data[dev_id] = {
-                    "type": "contr",
-                    "name": dev_name,
-                    "id": dev_id,
-                    "params": params,
-                    # False — детальный ответ get_big_contr не получен, данные
-                    # взяты из списка устройств и могут быть неполными
-                    # (в них может не быть tstatArr и других полей климата)
-                    "detail_ok": bool(details_by_id.get(dev_id)),
-                    # приводим к "1"/"0", как ожидают сенсоры и проверки профилей
-                    "mqtt_online": "1" if _truthy(pick("mqtt_online", 0)) else "0",
-                    "climate": _parse_climate(pick),
-                    "raw": details,
-                    "list_raw": dev,  # элемент из get_all_dev (для диагностики)
-                }
-
-            elif dev_type == "dt":
-                result_data[dev_id] = {
-                    "type": "dt",
-                    "name": dev_name,
-                    "id": dev_id,
-                    "temp": dev.get("temp"),
-                    # секунд с последнего сообщения датчика; None — сервер не сообщил
-                    "time": to_number(dev.get("time")),
-                    "raw": dev,
-                }
+            if built is not None:
+                result_data[built[0]] = built[1]
+        self._bad_devices = bad_now
 
         # Температура датчика климат-контроля: контроллер отдаёт её целой
         # (sensor_temp = "24"), а у самого датчика из списка устройств есть

@@ -221,8 +221,8 @@ class SensorTests(unittest.TestCase):
     def test_online_attribute(self):
         self.assertIsNone(self.make_dt(None).extra_state_attributes["online"])
         self.assertIs(self.make_dt(0).extra_state_attributes["online"], True)
-        self.assertIs(self.make_dt(299).extra_state_attributes["online"], True)
-        self.assertIs(self.make_dt(300).extra_state_attributes["online"], False)
+        self.assertIs(self.make_dt(const.DT_STALE_SECONDS - 1).extra_state_attributes["online"], True)
+        self.assertIs(self.make_dt(const.DT_STALE_SECONDS).extra_state_attributes["online"], False)
 
     def test_debug_sensor_disabled_and_unrecorded(self):
         cls = sensor_mod.KotelContrDebugSensor

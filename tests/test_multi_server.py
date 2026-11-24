@@ -243,7 +243,7 @@ class AccountDuplicateTests(unittest.TestCase):
 
     def test_url_is_not_part_of_identity(self):
         source = (COMPONENT / "config_flow.py").read_text(encoding="utf-8")
-        self.assertIn('f"{login.casefold()}|{home_id}"', source)
+        self.assertIn("casefold()}|{home_id}", source)
 
 
 class DefaultsTests(unittest.TestCase):

@@ -11,12 +11,28 @@
         "data": {
           "password": "Password"
         }
+      },
+      "user": {
+        "data_description": {
+          "home_id": "Leave empty to choose from the homes of this account."
+        }
+      },
+      "select_home": {
+        "title": "Choose a home",
+        "description": "Choose the home to connect.",
+        "data": {
+          "home_id": "Home"
+        }
       }
     },
     "error": {
       "invalid_auth": "Wrong login or password",
       "unexpected_response": "The server returned an unexpected response: {response}",
-      "no_response": "The server did not respond. If the Home ID is wrong, the server may not answer at all: check the Home ID, login and password."
+      "no_response": "The server did not respond. If the Home ID is wrong, the server may not answer at all: check the Home ID, login and password.",
+      "login_rejected": "The server rejected the login: {response}",
+      "no_homes": "This account has no homes.",
+      "home_not_found": "This Home ID is not among the homes of this account: {homes}",
+      "no_home_id": "The list of homes is not available. Enter the Home ID."
     }
   },
   "selector": {
@@ -57,6 +73,32 @@
     },
     "abort": {
       "not_loaded": "The integration is not loaded. Reload it and try again."
+    }
+  },
+  "services": {
+    "apply_profile": {
+      "fields": {
+        "force": {
+          "description": "Write even when the controller is offline or climate control is switched off."
+        }
+      }
+    },
+    "undo_apply": {
+      "fields": {
+        "force": {
+          "description": "Write even when the controller is offline or climate control is switched off."
+        }
+      }
+    }
+  },
+  "entity": {
+    "number": {
+      "fan_damper": {
+        "name": "Fan damper"
+      },
+      "sensor_correction": {
+        "name": "Sensor temperature correction"
+      }
     }
   }
 }

@@ -36,6 +36,7 @@ from homeassistant.helpers.storage import Store  # pyright: ignore[reportMissing
 from homeassistant.util import dt as dt_util  # pyright: ignore[reportMissingImports]
 
 from .api import KotelApiError, is_valid_device_id
+from .params_parser import get_params
 from .const import (
     CLIMATE_TEMP_MAX,
     CLIMATE_TEMP_MIN,
@@ -69,6 +70,9 @@ EVENT_PROFILE_DELETED = "kotel_profile_deleted"
 # --- поведение применения (в тестах переопределяются) ------------------------
 WRITE_DELAY = 0.3          # пауза между командами, с
 SENSOR_NOT_FOUND = "датчик не найден среди датчиков этого дома"
+CLIMATE_OFF = "климат-контроль выключен: включите его и примените профиль снова"
+CLIMATE_NO_DATA = "нет актуальных данных климат-контроля: повторите позже"
+VERIFY_RETRY_TIMEOUT = 12.0  # сколько ждать подтверждения после повторной записи, с
 VERIFY_FIRST_WAIT = 2.0    # пауза перед первой проверкой, с
 VERIFY_INTERVAL = 4.0      # интервал повторных проверок, с
 VERIFY_TIMEOUT = 20.0      # сколько ждать подтверждения от контроллера, с
@@ -79,6 +83,9 @@ SCOPE_CLIMATE = "climate"
 SCOPE_SCHEDULE = "schedule"
 SCOPE_SENSOR = "climate_sensor"
 ALL_SCOPES = (SCOPE_BOILER, SCOPE_CLIMATE, SCOPE_SCHEDULE, SCOPE_SENSOR)
+# Области, которые относятся к климат-контролю: в приложении ReglerPro при выключенном
+# климате доступна только кнопка «Включить» (режим, температура, расписание и датчик скрыты)
+CLIMATE_SCOPES = (SCOPE_CLIMATE, SCOPE_SCHEDULE, SCOPE_SENSOR)
 DEFAULT_SCOPES = (SCOPE_BOILER,)
 
 # --- типы профилей -----------------------------------------------------------
@@ -152,6 +159,23 @@ def validate_value(scope: str, key: str, value) -> str | None:
         ok = key == "tstatDtId" and is_valid_device_id(value)
         return None if ok else "недопустимый идентификатор датчика"
     return "неизвестная область"
+
+
+
+def _climate_block_reason(data: dict) -> str | None:
+    """Почему климатические значения сейчас записывать нельзя (None — можно)."""
+    if not data.get("detail_ok", True):
+        return CLIMATE_NO_DATA          # без детального ответа климат выглядит «выключенным»
+    if not (data.get("climate") or {}).get("enabled"):
+        return CLIMATE_OFF
+    return None
+
+
+def _is_online(data: dict) -> bool:
+    """Контроллер в сети по правилу приложения; запасной вариант — mqtt_online."""
+    if "online" in data:
+        return bool(data["online"])
+    return str(data.get("mqtt_online")) == "1"
 
 
 def values_equal(first, second) -> bool:
@@ -919,7 +943,7 @@ class KotelProfileManager:
             data = coordinator.data.get(dev_id)
             if not data:
                 raise HomeAssistantError("Нет данных контроллера")
-            if not force and str(data.get("mqtt_online")) != "1":
+            if not force and not _is_online(data):
                 raise HomeAssistantError(
                     "Контроллер не в сети: применение невозможно (параметр force отключает проверку)")
 
@@ -930,14 +954,28 @@ class KotelProfileManager:
             skipped_keys = {(s["scope"], s["key"]) for s in extra_skipped}
             ordered = [c for c in ordered if (c["scope"], c["key"]) not in skipped_keys]
 
+            # Что применять нельзя: значение и причина. В пробном запуске это «пропущено»,
+            # при настоящем применении — ошибка (профиль применён не полностью).
+            refused: list[tuple[dict, str]] = []
+
+            # Климат-контроль выключен (или о нём нет свежих данных): режим, температура,
+            # расписание и датчик не записываются. Включение климата в профили не входит
+            # (climat_on_off — переключатель). Параметр force отключает эту проверку.
+            climate_changes = [c for c in ordered if c["scope"] in CLIMATE_SCOPES]
+            if climate_changes and not force:
+                reason = _climate_block_reason(data)
+                if reason:
+                    refused.extend((c, reason) for c in climate_changes)
+                    ordered = [c for c in ordered if c not in climate_changes]
+
             # Датчик из профиля (особенно импортированного из другого дома) нельзя
             # отправлять на сервер, пока он не найден среди датчиков этого дома.
-            rejected: list[dict] = []
             if any(c["scope"] == SCOPE_SENSOR for c in ordered):
                 known = await self._known_sensor_ids(coordinator, api, dev_id, data)
-                rejected = [c for c in ordered
-                            if c["scope"] == SCOPE_SENSOR and c["to"] not in known]
-                ordered = [c for c in ordered if c not in rejected]
+                unknown = [c for c in ordered
+                           if c["scope"] == SCOPE_SENSOR and c["to"] not in known]
+                refused.extend((c, SENSOR_NOT_FOUND) for c in unknown)
+                ordered = [c for c in ordered if c not in unknown]
 
             report: dict[str, Any] = {
                 "profile": label, "device_id": dev_id, "dry_run": dry_run,
@@ -945,13 +983,14 @@ class KotelProfileManager:
                              "from": c["from"], "to": c["to"]} for c in ordered],
                 "unchanged": unchanged, "skipped": skipped,
                 "applied": 0, "failed": [], "unverified": [], "ok": True,
+                "confirmed_by_check": 0, "retried": 0,
             }
-            for change in rejected:
+            for change, reason in refused:
                 problem = {"scope": change["scope"], "key": change["key"]}
                 if dry_run:
-                    report["skipped"].append({**problem, "reason": SENSOR_NOT_FOUND})
+                    report["skipped"].append({**problem, "reason": reason})
                 else:
-                    report["failed"].append({**problem, "error": SENSOR_NOT_FOUND})
+                    report["failed"].append({**problem, "error": reason})
             report["ok"] = not report["failed"]
             if dry_run or not ordered:
                 return report
@@ -990,7 +1029,11 @@ class KotelProfileManager:
                     await asyncio.sleep(WRITE_DELAY)
 
             if verify and written:
-                report["unverified"] = await self._verify(coordinator, dev_id, written, scopes)
+                unverified = await self._verify(coordinator, dev_id, written, scopes)
+                if unverified:
+                    unverified = await self._second_pass(
+                        coordinator, api, dev_id, written, unverified, scopes, report)
+                report["unverified"] = unverified
 
             report["ok"] = not report["failed"] and not report["unverified"]
             return report
@@ -1026,11 +1069,61 @@ class KotelProfileManager:
         elif scope == SCOPE_SENSOR:
             await api.select_climate_sensor(dev_id, str(value))
 
+    async def _second_pass(self, coordinator, api, dev_id: str, written: list[dict],
+                           unverified: list[dict], scopes: list[str], report: dict) -> list[dict]:
+        """Что делать с неподтверждёнными значениями после основного ожидания.
+
+        1. Второе мнение: get_big_contr_check — запрос, которым приложение ReglerPro
+           проверяет результат записи (только параметры котла).
+        2. Остальное записывается ещё раз: команды установки значения идемпотентны, а
+           потерянная команда или отклонённое из-за порядка расписания значение
+           после остальных записей обычно проходит. Затем короткая повторная проверка.
+        """
+        by_key = {(c["scope"], c["key"]): c for c in written}
+        pending = [by_key[(u["scope"], u["key"])] for u in unverified
+                   if (u["scope"], u["key"]) in by_key]
+
+        boiler = [c for c in pending if c["scope"] == SCOPE_BOILER]
+        if boiler:
+            try:
+                check = await api.get_controller_check(dev_id)
+            except KotelApiError as err:
+                _LOGGER.debug("get_big_contr_check не удался: %s", err)
+                check = {}
+            params = get_params((check or {}).get("params"))
+            confirmed = [c for c in boiler if values_equal(params.get(c["key"]), c["to"])]
+            if confirmed:
+                _LOGGER.info("Значения подтверждены через get_big_contr_check: %s",
+                             ", ".join(f"{c['scope']}.{c['key']}" for c in confirmed))
+                report["confirmed_by_check"] = len(confirmed)
+                pending = [c for c in pending if c not in confirmed]
+
+        if not pending:
+            return []
+
+        retried: list[dict] = []
+        for change in pending:
+            try:
+                await self._write(api, dev_id, change)
+            except KotelApiError as err:
+                report["failed"].append({"scope": change["scope"], "key": change["key"],
+                                         "error": str(err)})
+                continue
+            retried.append(change)
+            if WRITE_DELAY:
+                await asyncio.sleep(WRITE_DELAY)
+        report["retried"] = len(retried)
+        if not retried:
+            return [{"scope": c["scope"], "key": c["key"], "expected": c["to"],
+                     "actual": None} for c in pending]
+        return await self._verify(coordinator, dev_id, retried, scopes,
+                                  timeout=VERIFY_RETRY_TIMEOUT)
+
     async def _verify(self, coordinator, dev_id: str, written: list[dict],
-                      scopes: list[str]) -> list[dict]:
+                      scopes: list[str], timeout: float | None = None) -> list[dict]:
         """Дождаться, пока контроллер вернёт записанные значения."""
         loop = asyncio.get_running_loop()
-        deadline = loop.time() + VERIFY_TIMEOUT
+        deadline = loop.time() + (VERIFY_TIMEOUT if timeout is None else timeout)
         pending = list(written)
         wait = VERIFY_FIRST_WAIT
         while pending:
@@ -1042,7 +1135,8 @@ class KotelProfileManager:
                        if not values_equal(current.get(c["scope"], {}).get(c["key"]), c["to"])]
             if loop.time() >= deadline:
                 break
-        return [{"scope": c["scope"], "key": c["key"], "expected": c["to"]} for c in pending]
+        return [{"scope": c["scope"], "key": c["key"], "expected": c["to"],
+                 "actual": current.get(c["scope"], {}).get(c["key"])} for c in pending]
 
     # ------------------------------------------------------------------ экспорт
     def _export_dir(self, to_www: bool) -> str:

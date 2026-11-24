@@ -20,6 +20,7 @@ from .const import (
 )
 from .coordinator import to_number
 from .entity import KotelEntity
+from .params_parser import is_kotel_auto
 
 if TYPE_CHECKING:  # pragma: no cover - только для типов
     from .runtime import KotelConfigEntry
@@ -51,13 +52,47 @@ NUMBER_PARAMS = (
      UnitOfTime.SECONDS, EntityCategory.CONFIG),
     ("shn_uga", "auger_interval_maintenance", 1, 900, 1,
      UnitOfTime.SECONDS, EntityCategory.CONFIG),
-    ("shn_roz_vkl", "auger_run_heating", 1, 300, 1,
+    ("shn_roz_vkl", "auger_run_heating", 1, 600, 1,
      UnitOfTime.SECONDS, EntityCategory.CONFIG),
-    ("shn_uga_vkl", "auger_run_maintenance", 1, 300, 1,
+    ("shn_uga_vkl", "auger_run_maintenance", 1, 600, 1,
      UnitOfTime.SECONDS, EntityCategory.CONFIG),
     ("shn_rev_auto_i", "auger_reverse_interval", 1, 600, 1,
      None, EntityCategory.CONFIG),
+    # заслонка вентилятора: 1 % — закрыта, 99 % — открыта (params_for_range в приложении)
+    ("servo_cooler", "fan_damper", 1, 99, 1,
+     PERCENTAGE, EntityCategory.CONFIG),
 )
+
+# Параметры шнека есть только у «авто»-котлов (в приложении is_kotel_auto), а минимальная
+# мощность вентилятора vent_min — только у остальных.
+AUGER_KEYS = frozenset({"shn_roz_vkl", "shn_roz", "shn_uga_vkl", "shn_uga"})
+
+# Коррекция датчика температуры помещения (action korect_dt): −15…15 °C, шаг 0,5
+SENSOR_CORRECTION_MIN = -15
+SENSOR_CORRECTION_MAX = 15
+SENSOR_CORRECTION_STEP = 0.5
+
+
+def param_supported(key: str, params: dict) -> bool:
+    """Показывает ли приложение ReglerPro этот параметр для данного контроллера.
+
+    Правила взяты из functions.js (page_device_settings и страница контроллера):
+    параметра нет в ответе — не показывается; шнек — только у «авто»-котлов;
+    vent_min — только у остальных; «Коррекция t° воды» и «Время угасания» — только
+    при korect_20 > 0; заслонка — только при ненулевом значении.
+    """
+    if params.get(key) is None:
+        return False
+    auto = is_kotel_auto(params.get("vers"))
+    if key in AUGER_KEYS:
+        return bool(auto)
+    if key == "vent_min":
+        return not auto
+    if key in ("korect_", "time_ugas"):
+        return (to_number(params.get("korect_20")) or 0) > 0
+    if key == "servo_cooler":
+        return bool(params[key])
+    return True
 
 
 # Записи параметров котла уходят в облако по одной
@@ -76,6 +111,11 @@ async def async_setup_entry(hass, entry: KotelConfigEntry, async_add_entities):
                 coordinator, dev_id,
                 key, translation_key, min_val, max_val, step, unit, category,
             ))
+
+    # Коррекция датчика температуры помещения — у каждого датчика
+    for dev_id, dev_data in coordinator.data.items():
+        if dev_data["type"] == "dt":
+            entities.append(KotelSensorCorrectionNumber(coordinator, dev_id))
 
     # Расписание климат-контроля: 6 групп × 4 периода × (время + температура)
     for dev_id, dev_data in coordinator.data.items():
@@ -115,6 +155,15 @@ class KotelNumberEntity(KotelEntity, NumberEntity):
     def native_value(self):
         data = self.coordinator.data.get(self._dev_id, {})
         return (data.get("params") or {}).get(self._key)
+
+    def _is_supported(self) -> bool:
+        data = self.coordinator.data.get(self._dev_id, {})
+        return param_supported(self._key, data.get("params") or {})
+
+    @property
+    def available(self) -> bool:
+        """Недоступно, если приложение этот параметр для контроллера не показывает."""
+        return super().available and self._is_supported()
 
     async def async_set_native_value(self, value):
         api = self.coordinator.api
@@ -156,6 +205,9 @@ UnitOfTemperature.CELSIUS,
         self._attr_mode = NumberMode.BOX
         self._attr_icon = "mdi:clock-outline" if kind == "time" else "mdi:thermometer"
 
+    def _is_supported(self) -> bool:
+        return True                       # расписание: правила параметров котла не применяются
+
     def _schedule(self) -> dict:
         data = self.coordinator.data.get(self._dev_id, {})
         return (data.get("climate") or {}).get("schedule", {})
@@ -191,4 +243,43 @@ UnitOfTemperature.CELSIUS,
         except KotelApiError as err:
             raise HomeAssistantError(
                 f"Не удалось записать {self._key}: {err}") from err
+        await self.coordinator.async_request_refresh()
+
+
+class KotelSensorCorrectionNumber(KotelEntity, NumberEntity):
+    """Коррекция показаний датчика температуры помещения, °C (action korect_dt)."""
+
+    _attr_native_min_value = SENSOR_CORRECTION_MIN
+    _attr_native_max_value = SENSOR_CORRECTION_MAX
+    _attr_native_step = SENSOR_CORRECTION_STEP
+    _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
+    _attr_mode = NumberMode.SLIDER
+    _attr_entity_category = EntityCategory.CONFIG
+    _attr_icon = "mdi:thermometer-plus"
+
+    def __init__(self, coordinator, dev_id):
+        super().__init__(
+            coordinator, dev_id,
+            unique_suffix="korect_dt_set",
+            translation_key="sensor_correction",
+        )
+
+    @property
+    def native_value(self):
+        data = self.coordinator.data.get(self._dev_id, {})
+        return to_number(data.get("korect_dt"))
+
+    @property
+    def available(self) -> bool:
+        return super().available and self.native_value is not None
+
+    async def async_set_native_value(self, value):
+        value = float(value)
+        value = int(value) if value.is_integer() else value
+        api = self.coordinator.api
+        try:
+            await api.send_command("korect_dt", self._dev_id, value)
+        except KotelApiError as err:
+            raise HomeAssistantError(
+                f"Не удалось записать коррекцию датчика: {err}") from err
         await self.coordinator.async_request_refresh()

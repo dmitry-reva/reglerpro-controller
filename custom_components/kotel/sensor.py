@@ -479,6 +479,7 @@ class KotelContrDebugSensor(KotelEntity, SensorEntity):
             "tstatArr": pick("tstatArr"),
             "tempUstNowTstate": pick("tempUstNowTstate"),
             "mqtt_online": data.get("mqtt_online"),
+            "online": data.get("online"),
             "raw_keys": sorted(raw.keys()),
             "list_raw_keys": sorted(list_raw.keys()),
         }
@@ -551,7 +552,17 @@ class KotelContrOnlineSensor(KotelEntity, SensorEntity):
     @property
     def native_value(self) -> str:
         data = self.coordinator.data.get(self._dev_id, {})
+        if "online" in data:                    # правило приложения (с запасом после обрыва)
+            return "online" if data["online"] else "offline"
         return "online" if str(data.get("mqtt_online")) == "1" else "offline"
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        data = self.coordinator.data.get(self._dev_id, {})
+        return {
+            "mqtt_online": data.get("mqtt_online"),
+            "offline_seconds": data.get("mqtt_offline_time"),
+        }
 
     @property
     def icon(self) -> str:
